@@ -4,6 +4,7 @@ import numpy as np
 from data import MarketData
 from params import CurveParameters
 from curve import CurveLogic
+import math
 
 def main():
     # 1) Load data from Excel
@@ -52,7 +53,7 @@ def main():
             compounding_out=cp.compounding
         )
 
-    # 6) Compute LLFR
+    # 6) Compute LLFR (No VA)
     llfr_noVA = cl.get_llfr(
         zero_rates=zero_boot, 
         dlt=dlt_array,
@@ -60,7 +61,7 @@ def main():
     )
     print(f"\nComputed LLFR (no VA) = {llfr_noVA:.6f}")
 
-    # 7) Alternative Extrapolation
+    # 7) Alternative Extrapolation (No VA)
     zero_extrap_noVA, fwd_extrap_noVA, disc_extrap_noVA = cl.alternative_extrapolation(
         zero_rates_cc=zero_boot,
         FSP=cp.FSP,
@@ -70,41 +71,47 @@ def main():
         compounding='C'
     )
 
-    # 8) Print results
+    # 8) Alternative Extrapolation (VA)
+    zero_boot_withVA = np.zeros(max_tenor)
+    fwd_boot_withVA = fwd_boot.copy()
+    # compute zero curves with VA parallel shift up to FSP
+    for i in range(cp.FSP):
+        fwd_boot_withVA[i] += math.log(1+cp.VA_value/10000)
+    for i in range(max_tenor):
+        zero_boot_withVA[i] = np.mean(fwd_boot_withVA[:i+1])
+
+    # Compute new LLFR with VA-laden zeros
+    llfr_withVA = cl.get_llfr(
+        zero_rates=zero_boot_withVA,
+        dlt=dlt_array,
+        weights=weight_array
+    )
+    print(f"\n[With VA] Computed LLFR = {llfr_withVA:.6f}")
+
+    # Extrapolated curves (With VA)
+    zero_extrap_withVA, fwd_extrap_withVA, disc_extrap_withVA = cl.alternative_extrapolation(
+        zero_rates_cc=zero_boot_withVA,
+        FSP=cp.FSP,
+        UFR=cp.UFR,
+        LLFR=llfr_withVA,
+        alpha=cp.alpha,
+        compounding='C'
+    )
+
+    # 9) Print results
     print("\n=== No VA (Extrapolated) ===")
     for i in range(max_tenor):
         print(f"Year {i+1} | Zero={zero_extrap_noVA[i]:.6f}"
               f" | Fwd={fwd_extrap_noVA[i]:.6f}"
               f" | Disc={disc_extrap_noVA[i]:.6f}")
 
+    print("\n=== With VA (Extrapolated) ===")
+    for i in range(max_tenor):
+        year = i+1
+        print(f"Year {year:2d} | Zero={zero_extrap_withVA[i]:.6f} "
+              f"| Fwd={fwd_extrap_withVA[i]:.6f} "
+              f"| Disc={disc_extrap_withVA[i]:.6f}")
+
+
 if __name__ == "__main__":
     main()
-
-
-    # # 7. Example: With VA
-    # #    - We'll first shift the short-end rates by cp.VA_value,
-    # #      up to cp.LLP (or some logic).
-    # va_rate_array = rate_array.copy()
-    # for i in range(1, max_tenor):
-    #     if i <= cp.LLP:
-    #         # add cp.VA_value (in decimal) => e.g. 1.35% => 0.0135
-    #         va_rate_array[i] += (cp.VA_value * 100)  # if original is in % ?
-
-    # zero_withVA, fwd_withVA, disc_withVA = cl.bootstrap_zero_to_zero_full(
-    #     zero_rates_init=va_rate_array,
-    #     dlt=dlt,
-    #     compounding_in='A',
-    #     cra=0.0,
-    #     max_tenor=max_tenor,
-    #     compounding_out='C'
-    # )
-
-    # LLFR_withVA = zero_withVA[cp.FSP]
-    # zero_extrap_withVA, fwd_extrap_withVA, disc_extrap_withVA = cl.alternative_extrapolation(
-    #     zero_rates_cc=zero_withVA,
-    #     FSP=cp.FSP,
-    #     UFR=cp.UFR,
-    #     LLFR=LLFR_withVA,
-    #     alpha=cp.alpha,
-    #     compounding='C'
-    # )
