@@ -1,5 +1,3 @@
-# params.py
-
 class CurveParameters:
     """
     Hard-coded scalar inputs from 'Calculator'!H4:H7 and 'Calculator'!O4:O8.
@@ -7,7 +5,7 @@ class CurveParameters:
     """
 
     def __init__(self):
-        # self.LLP = 50         # Last Liquid Point
+        self.CP = 50         # Covergence Point (= LLP + Convergence Radius for SW || = LLP for Alternative Extrapolation Method)
         self.FSP = 20         # First Smoothing Point
         self.UFR = 0.0375      # Ultimate Forward Rate (3.6%)
         self.alpha = 0.10     # speed of convergence / reversion to the mean
