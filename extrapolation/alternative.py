@@ -11,7 +11,7 @@ class ExtrapolationAlt:
     # alternative_extrapolation
     ###############################################################
     def alternative_extrapolation(self, zero_rates, FSP, UFR, LLFR,
-                                  alpha, compounding):
+                                  alpha, compounding_out):
         max_range = len(zero_rates)
         discount = np.zeros(max_range)
         forward = np.zeros(max_range)
@@ -33,12 +33,13 @@ class ExtrapolationAlt:
         # from index=FSP..(max_range-1)
         for i in range(FSP, max_range):
             year = i+1
-            fwtemp = ln_ufr + (LLFR - ln_ufr)*(1 - exp(-alpha*(year - FSP))) / (alpha*(year - FSP))
+            fwtemp = ln_ufr + (LLFR - ln_ufr)*(1 -
+                                               exp(-alpha*(year - FSP))) / (alpha*(year - FSP))
             zero[i] = (FSP*zero[FSP-1] + (year - FSP)*fwtemp)/year
             discount[i] = exp(-year*zero[i])
             forward[i] = log(discount[i-1]/discount[i]) if i > 0 else zero[i]
 
-        if compounding == 'A':
+        if compounding_out == 'A':
             for i in range(max_range):
                 forward[i] = exp(forward[i]) - 1
                 zero[i] = exp(zero[i]) - 1
@@ -79,7 +80,8 @@ class ExtrapolationAlt:
         if LLPbefore >= 0 and fsp_idx > LLPbefore:
             B = fsp_idx + 1
             A = LLPbefore + 1
-            seg_fw = ((B*zero_rates[fsp_idx]) - (A*zero_rates[LLPbefore]))/(B - A)
+            seg_fw = ((B*zero_rates[fsp_idx]) -
+                      (A*zero_rates[LLPbefore]))/(B - A)
             llfr_val += pos_wts[0] * seg_fw
 
         # subsequent segments => (fsp -> t_i)
@@ -93,7 +95,7 @@ class ExtrapolationAlt:
         return llfr_val
 
     def get_first_fw_llfr(self, zero_rates, dlt, weights):
-        pos_idx = [i for i in range(len(weights)) if weights[i]>0]
+        pos_idx = [i for i in range(len(weights)) if weights[i] > 0]
         if not pos_idx:
             return 0.0
         fsp_idx = pos_idx[0]
@@ -115,8 +117,7 @@ class ExtrapolationAlt:
         zero_boot_withVA = np.zeros(max_tenor)
         # compute zero curves with VA parallel shift up to FSP
         for i in range(FSP):
-            fwd_boot_withVA[i] += math.log(1+VA_value/10000) # VA in bp
+            fwd_boot_withVA[i] += math.log(1+VA_value/10000)  # VA in bp
         for i in range(max_tenor):
             zero_boot_withVA[i] = np.mean(fwd_boot_withVA[:i+1])
         return zero_boot_withVA
-
