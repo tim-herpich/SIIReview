@@ -85,11 +85,11 @@ class ExtrapolationSW:
         # If not found, return last alpha
         return end_alpha, gamma
 
-    def smith_wilson_extrapolation(self, Instrument, curve_data, coupon_freq, CRA, UFR, alpha_min, CR, CP):
+    def smith_wilson_extrapolation(self, instrument, curve_data, coupon_freq, CRA, UFR, alpha_min, CR, CP):
         """
         Main Smith-Wilson function
         Inputs:
-            Instrument: "Zero", "Bond", "Swap"
+            instrument: "Zero", "Bond", "Swap"
             DataIn: DTL, Tenor, Input Rates
             nrofcoup: number of annual coupon payments
             CRA: credit risk adjustment (basis points)
@@ -112,13 +112,13 @@ class ExtrapolationSW:
         umax = np.max(u)
 
         # Create Q matrix
-        if Instrument == "Zero":
+        if instrument == "Zero":
             coupon_freq = 1
         Q_cols = int(umax * coupon_freq)
         Q = np.zeros((nrofrates, Q_cols))
         lnUFR = np.log(1 + UFR)
 
-        if Instrument == "Zero":
+        if instrument == "Zero":
             for i in range(nrofrates):
                 maturity = int(u[i])
                 if maturity < 1 or maturity > Q_cols:
@@ -126,7 +126,7 @@ class ExtrapolationSW:
                         f"Maturity {maturity} out of Q matrix bounds.")
                 Q[i, maturity - 1] = np.exp(-lnUFR * u[i]) * \
                     ((1 + r[i]) ** u[i])
-        elif Instrument in ["Swap", "Bond"]:
+        elif instrument in ["Swap", "Bond"]:
             for i in range(nrofrates):
                 maturity = int(u[i] * coupon_freq)
                 for j in range(1, maturity):
@@ -257,11 +257,11 @@ class ExtrapolationSW:
         # Prepare output as a dictionary
         output_dict = {
             'Tenors': np.arange(max_v + 1, dtype=int),
-            'Zero CC': zerocc,
-            'Forward CC': forwardcc,
+            'Zero_CC': zerocc,
+            'Forward_CC': forwardcc,
             'Discount': discountcc,
-            'Zero AC': zeroac,
-            'Forward AC': forwardac,
+            'Zero_AC': zeroac,
+            'Forward_AC': forwardac,
         }        
         return pd.DataFrame(data=output_dict)
 

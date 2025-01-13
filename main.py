@@ -5,6 +5,7 @@ from bootstrapping import Bootstrapping
 from extrapolation.alternative import ExtrapolationAlt
 from extrapolation.smithwilson import ExtrapolationSW
 from va import VASpreadCalculator
+from impact import OnwFundsImpactAssessor
 
 
 def main():
@@ -23,7 +24,8 @@ def main():
     bootstr = Bootstrapping()
     ext_alt = ExtrapolationAlt()
     ext_sw = ExtrapolationSW()
-    va_calc = VASpreadCalculator() 
+    va_calc = VASpreadCalculator()
+    impact_calc = OnwFundsImpactAssessor()
 
     # 4) Prepare arrays for bootstrapping
     dlt_array = np.zeros(cp.max_tenorofAlt)
@@ -40,7 +42,7 @@ def main():
 
     # 5) Bootstrap zero curves
     # Swap vs Zero input curves
-    if cp.Instrument == 'Swap' or cp.Instrument == 'Bond':
+    if cp.instrument == 'Swap' or cp.instrument == 'Bond':
         zero_boot, fwd_boot, disc_boot = bootstr.bootstrap_swap_to_zero_full(
             swap_rates=rate_array * 100.0,  # decimal => percentage as required by method
             dlt=dlt_array,
@@ -79,7 +81,7 @@ def main():
     # 8) Include new VA
     # add new VA to zero curves
     zero_boot_withNewVA = ext_alt.zero_boot_withVA(
-        fwd_boot, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread()) # Alt extrapolation uses new VA method
+        fwd_boot, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread())  # Alt extrapolation uses new VA method
 
     # Compute new LLFR with VA-laden zeros
     llfr_withNewVA = ext_alt.get_llfr(
@@ -99,22 +101,24 @@ def main():
 
     # 9) Smith-Wilson Extrapolation
     results_SW = ext_sw.smith_wilson_extrapolation(
-        Instrument=cp.Instrument, curve_data=df_sw, coupon_freq=cp.coupon_freq,
+        instrument=cp.instrument, curve_data=df_sw, coupon_freq=cp.coupon_freq,
         CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
-    # 9) Smith-Wilson Extrapolation with VA
+    # Smith-Wilson Extrapolation with VA
     df_sw_withVA = ext_sw.getInputwithVA(
-        zero_rates_extrapolated_ac=results_SW['Zero AC'].copy(), LLP=cp.LLP_SW, VA_value=cp.VA_value, curve_data=df_sw)
+        zero_rates_extrapolated_ac=results_SW['Zero_AC'].copy(), LLP=cp.LLP_SW, VA_value=cp.VA_value, curve_data=df_sw)
 
     results_SW_withVA = ext_sw.smith_wilson_extrapolation(
-        Instrument='Zero', curve_data=df_sw_withVA, coupon_freq=cp.coupon_freq,
+        instrument='Zero', curve_data=df_sw_withVA, coupon_freq=cp.coupon_freq,
         CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
+    # 10) Impact Assessment on Own Funds (Alternative Extrapolation + new VA vs. SW Extrapolation + VA)
+    impact_calc.assess_impact(asset_size=cp.asset_Size, asset_duration=cp.asset_Duration,
+                              liability_size=cp.liability_Size, liability_duration=cp.liability_Duration,
+                              discount_curve_SWWithVA=results_SW_withVA[[
+                                  'Tenors', 'Zero_CC']],
+                              discount_curve_AltWithVA=results_Alt_withNewVA[['Tenors', 'Zero_CC']])
 
-    results_Alt
-    results_Alt_withNewVA
-    results_SW
-    results_SW_withVA
 
 if __name__ == "__main__":
     main()

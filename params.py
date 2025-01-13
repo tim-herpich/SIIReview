@@ -18,4 +18,8 @@ class CurveParameters:
         self.CRA = 0.0        # credit risk adjustment
         self.max_tenorofAlt = 150     # maximum tenor 150
         self.compounding = 'C'  # 'C' => continuous by default
-        self.Instrument = 'Swap'     # Input Rates can be "Zero", "Bond", or "Swap"
+        self.instrument = 'Swap'     # Input Rates can be "Zero", "Bond", or "Swap"
+        self.asset_Size = 1e6   # Size of Asset Portfolio
+        self.asset_Duration = 7.1   # Duration of Asset Portfolio
+        self.liability_Size = 0.95e6   # Size of Liability Portfolio
+        self.liability_Duration = 6.9   # Duration of Liability Portfolio

@@ -8,9 +8,6 @@ class ExtrapolationAlt:
     def __init__(self):
         pass
 
-    ###############################################################
-    # alternative_extrapolation
-    ###############################################################
     def alternative_extrapolation(self, zero_rates, FSP, UFR, LLFR,
                                   alpha):
         max_range = len(zero_rates)
@@ -48,16 +45,12 @@ class ExtrapolationAlt:
         # Prepare output as a dictionary
         output_dict = {
             'Tenors': np.arange(max_range, dtype=int),
-            'Zero CC': zerocc,
-            'Forward CC': forwardcc,
-            'Discount CC': discount
+            'Zero_CC': zerocc,
+            'Forward_CC': forwardcc,
+            'Discount': discount
         }        
         return pd.DataFrame(data=output_dict)
 
-
-    ###############################################################
-    # get_llfr
-    ###############################################################
     def get_llfr(self, zero_rates, dlt, weights):
         pos_idx = []
         pos_wts = []
