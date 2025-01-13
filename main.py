@@ -4,7 +4,7 @@ from params import CurveParameters
 from bootstrapping import Bootstrapping
 from extrapolation.alternative import ExtrapolationAlt
 from extrapolation.smithwilson import ExtrapolationSW
-import math
+from va import VASpreadCalculator
 
 
 def main():
@@ -23,6 +23,7 @@ def main():
     bootstr = Bootstrapping()
     ext_alt = ExtrapolationAlt()
     ext_sw = ExtrapolationSW()
+    va_calc = VASpreadCalculator() 
 
     # 4) Prepare arrays for bootstrapping
     dlt_array = np.zeros(cp.max_tenorofAlt)
@@ -73,13 +74,16 @@ def main():
         UFR=cp.UFR,
         LLFR=llfr_noVA,
         alpha=cp.alpha,
-        compounding_out='C'
+        compounding_out=cp.compounding
     )
 
     # 8) Include VA
-    # add VA to zero curves
+    # add new VA to zero curves
     zero_boot_withVA = ext_alt.zero_boot_withVA(
-        fwd_boot, cp.max_tenorofAlt, cp.FSP, cp.VA_value)
+        fwd_boot, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread())
+    # For calculation with old VA value
+    # zero_boot_withVA = ext_alt.zero_boot_withVA(
+    #     fwd_boot, cp.max_tenorofAlt, cp.FSP, cp.VA_value)
 
     # Compute new LLFR with VA-laden zeros
     llfr_withVA = ext_alt.get_llfr(
@@ -88,25 +92,24 @@ def main():
         weights=weight_array
     )
 
-    # Extrapolated curves with VA
+    # Alternative Extrapolation with VA
     zero_extrap_withVA, fwd_extrap_withVA, disc_extrap_withVA = ext_alt.alternative_extrapolation(
         zero_rates=zero_boot_withVA,
         FSP=cp.FSP,
         UFR=cp.UFR,
         LLFR=llfr_withVA,
         alpha=cp.alpha,
-        compounding_out='C'
+        compounding_out=cp.compounding
     )
 
-    ######################################################## SW ########################################################
-
-    # Run the Smith-Wilson Brute Force method
+    # Smith-Wilson Extrapolation
     results_SW = ext_sw.smith_wilson_extrapolation(
         Instrument=cp.Instrument, curve_data=df_sw, coupon_freq=cp.coupon_freq,
         CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
+    # Smith-Wilson Extrapolation with VA
     df_sw_withVA = ext_sw.getInputwithVA(
-        zero_rates_extrapolated_ac=results_SW['zeroac'].copy(), LLP=cp.LLP_SW, VA_value=cp.VA_value, curve_data=df_sw)
+        zero_rates_extrapolated_ac=results_SW['Zero AC'].copy(), LLP=cp.LLP_SW, VA_value=cp.VA_value, curve_data=df_sw)
 
     results_SW_withVA = ext_sw.smith_wilson_extrapolation(
         Instrument='Zero', curve_data=df_sw_withVA, coupon_freq=cp.coupon_freq,

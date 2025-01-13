@@ -99,7 +99,7 @@ class ExtrapolationSW:
             CP: convergence point
         Returns:
             A dictionary containing six numpy arrays:
-                discount, yldintensity, zeroac, fwintensity, forwardcc, forwardac
+                zerocc, forwardcc, discountcc
         """
         # Convert DataIn to array
         data = curve_data
@@ -198,28 +198,28 @@ class ExtrapolationSW:
         temp = np.sum((1 - np.exp(-alpha * indices / coupon_freq)) * gamma)
 
         # Initialize output arrays
-        yldintensity = np.zeros(max_v + 1)
+        zerocc = np.zeros(max_v + 1)
         fwintensity = np.zeros(max_v + 1)
-        discount = np.zeros(max_v + 1)
+        discountcc = np.zeros(max_v + 1)
         zeroac = np.zeros(max_v + 1)
         forwardac = np.zeros(max_v + 1)
         forwardcc = np.zeros(max_v + 1)
 
         # yldintensity[0], fwintensity[0], discount[0]
-        yldintensity[0] = lnUFR - alpha * temp
-        fwintensity[0] = yldintensity[0]
-        discount[0] = 1
+        zerocc[0] = lnUFR - alpha * temp
+        fwintensity[0] = zerocc[0]
+        discountcc[0] = 1
 
         if Q_cols >= 1:
             # yldintensity[1]
-            yldintensity[1] = lnUFR - np.log(1 + tempdiscount[1])
+            zerocc[1] = lnUFR - np.log(1 + tempdiscount[1])
             # fwintensity[1]
             fwintensity[1] = lnUFR - tempintensity[1] / (1 + tempdiscount[1])
             # discount[1]
-            discount[1] = np.exp(-lnUFR) * (1 + tempdiscount[1])
+            discountcc[1] = np.exp(-lnUFR) * (1 + tempdiscount[1])
             # zeroac[1]
-            if discount[1] != 0:
-                zeroac[1] = (1 / discount[1]) ** (1 / 1) - 1
+            if discountcc[1] != 0:
+                zeroac[1] = (1 / discountcc[1]) ** (1 / 1) - 1
             else:
                 zeroac[1] = 0
             # forwardac[1]
@@ -229,24 +229,24 @@ class ExtrapolationSW:
 
         # Loop from i=2 to120
         for i in range(2, max_v):
-            yldintensity[i] = lnUFR - np.log(1 + tempdiscount[i]) / i
+            zerocc[i] = lnUFR - np.log(1 + tempdiscount[i]) / i
             fwintensity[i] = lnUFR - tempintensity[i] / (1 + tempdiscount[i])
-            discount[i] = np.exp(-lnUFR * i) * (1 + tempdiscount[i])
-            if discount[i] != 0:
-                zeroac[i] = (1 / discount[i]) ** (1 / i) - 1
+            discountcc[i] = np.exp(-lnUFR * i) * (1 + tempdiscount[i])
+            if discountcc[i] != 0:
+                zeroac[i] = (1 / discountcc[i]) ** (1 / i) - 1
             else:
                 zeroac[i] = 0
-            if discount[i - 1] != 0 and discount[i] != 0:
-                forwardac[i] = discount[i - 1] / discount[i] - 1
+            if discountcc[i - 1] != 0 and discountcc[i] != 0:
+                forwardac[i] = discountcc[i - 1] / discountcc[i] - 1
             else:
                 forwardac[i] = 0
 
         # After loop, set last index 121
-        yldintensity[max_v] = 0
+        zerocc[max_v] = 0
         fwintensity[max_v] = 0
         zeroac[max_v] = 0
         forwardac[max_v] = 0
-        discount[max_v] = alpha
+        discountcc[max_v] = alpha
 
         # Compute forwardcc and zerocc
         zerocc_arr = np.zeros(max_v + 1)
@@ -255,16 +255,15 @@ class ExtrapolationSW:
             zerocc_arr[i] = np.log(1 + zeroac[i])
 
         # Prepare output as a dictionary
-        output = {
-            'discount': discount,
-            'yldintensity': yldintensity,
-            'zeroac': zeroac,
-            'fwintensity': fwintensity,
-            'forwardcc': forwardcc,
-            'forwardac': forwardac
-        }
-
-        return output
+        output_dict = {
+            'Tenors': np.arange(max_v + 1, dtype=int),
+            'Zero CC': zerocc,
+            'Forward CC': forwardcc,
+            'Discount CC': discountcc,
+            'Zero AC': zeroac,
+            'Forward AC': forwardac,
+        }        
+        return pd.DataFrame(data=output_dict)
 
     def getInputwithVA(self, zero_rates_extrapolated_ac, LLP, VA_value, curve_data):
         """
