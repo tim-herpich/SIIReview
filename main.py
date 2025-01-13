@@ -68,46 +68,41 @@ def main():
     )
 
     # 7) Alternative Extrapolation (No VA)
-    zero_extrap_noVA, fwd_extrap_noVA, disc_extrap_noVA = ext_alt.alternative_extrapolation(
+    results_Alt = ext_alt.alternative_extrapolation(
         zero_rates=zero_boot,
         FSP=cp.FSP,
         UFR=cp.UFR,
         LLFR=llfr_noVA,
-        alpha=cp.alpha,
-        compounding_out=cp.compounding
+        alpha=cp.alpha
     )
 
-    # 8) Include VA
+    # 8) Include new VA
     # add new VA to zero curves
-    zero_boot_withVA = ext_alt.zero_boot_withVA(
-        fwd_boot, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread())
-    # For calculation with old VA value
-    # zero_boot_withVA = ext_alt.zero_boot_withVA(
-    #     fwd_boot, cp.max_tenorofAlt, cp.FSP, cp.VA_value)
+    zero_boot_withNewVA = ext_alt.zero_boot_withVA(
+        fwd_boot, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread()) # Alt extrapolation uses new VA method
 
     # Compute new LLFR with VA-laden zeros
-    llfr_withVA = ext_alt.get_llfr(
-        zero_rates=zero_boot_withVA,
+    llfr_withNewVA = ext_alt.get_llfr(
+        zero_rates=zero_boot_withNewVA,
         dlt=dlt_array,
         weights=weight_array
     )
 
-    # Alternative Extrapolation with VA
-    zero_extrap_withVA, fwd_extrap_withVA, disc_extrap_withVA = ext_alt.alternative_extrapolation(
-        zero_rates=zero_boot_withVA,
+    # Alternative Extrapolation with new VA
+    results_Alt_withNewVA = ext_alt.alternative_extrapolation(
+        zero_rates=zero_boot_withNewVA,
         FSP=cp.FSP,
         UFR=cp.UFR,
-        LLFR=llfr_withVA,
-        alpha=cp.alpha,
-        compounding_out=cp.compounding
+        LLFR=llfr_withNewVA,
+        alpha=cp.alpha
     )
 
-    # Smith-Wilson Extrapolation
+    # 9) Smith-Wilson Extrapolation
     results_SW = ext_sw.smith_wilson_extrapolation(
         Instrument=cp.Instrument, curve_data=df_sw, coupon_freq=cp.coupon_freq,
         CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
-    # Smith-Wilson Extrapolation with VA
+    # 9) Smith-Wilson Extrapolation with VA
     df_sw_withVA = ext_sw.getInputwithVA(
         zero_rates_extrapolated_ac=results_SW['Zero AC'].copy(), LLP=cp.LLP_SW, VA_value=cp.VA_value, curve_data=df_sw)
 
@@ -115,6 +110,10 @@ def main():
         Instrument='Zero', curve_data=df_sw_withVA, coupon_freq=cp.coupon_freq,
         CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
+
+    results_Alt
+    results_Alt_withNewVA
+    results_SW
     results_SW_withVA
 
 if __name__ == "__main__":

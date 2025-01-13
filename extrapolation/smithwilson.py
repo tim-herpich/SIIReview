@@ -259,7 +259,7 @@ class ExtrapolationSW:
             'Tenors': np.arange(max_v + 1, dtype=int),
             'Zero CC': zerocc,
             'Forward CC': forwardcc,
-            'Discount CC': discountcc,
+            'Discount': discountcc,
             'Zero AC': zeroac,
             'Forward AC': forwardac,
         }        

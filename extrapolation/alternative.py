@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import pandas as pd
 from math import exp, log
 
 class ExtrapolationAlt:
@@ -11,23 +12,23 @@ class ExtrapolationAlt:
     # alternative_extrapolation
     ###############################################################
     def alternative_extrapolation(self, zero_rates, FSP, UFR, LLFR,
-                                  alpha, compounding_out):
+                                  alpha):
         max_range = len(zero_rates)
         discount = np.zeros(max_range)
-        forward = np.zeros(max_range)
-        zero = np.zeros(max_range)
+        forwardcc = np.zeros(max_range)
+        zerocc = np.zeros(max_range)
 
         # init year=1 => index=0
         discount[0] = exp(-zero_rates[0])
-        zero[0] = zero_rates[0]
-        forward[0] = zero[0]
+        zerocc[0] = zero_rates[0]
+        forwardcc[0] = zerocc[0]
 
         # fill up to FSP-1 => index (FSP-1)
         for i in range(1, FSP):
             year = i+1
-            zero[i] = zero_rates[i]
-            forward[i] = year*zero[i] - (year-1)*zero[i-1]
-            discount[i] = discount[i-1]*exp(-forward[i])
+            zerocc[i] = zero_rates[i]
+            forwardcc[i] = year*zerocc[i] - (year-1)*zerocc[i-1]
+            discount[i] = discount[i-1]*exp(-forwardcc[i])
 
         ln_ufr = log(1 + UFR)
         # from index=FSP..(max_range-1)
@@ -35,16 +36,24 @@ class ExtrapolationAlt:
             year = i+1
             fwtemp = ln_ufr + (LLFR - ln_ufr)*(1 -
                                                exp(-alpha*(year - FSP))) / (alpha*(year - FSP))
-            zero[i] = (FSP*zero[FSP-1] + (year - FSP)*fwtemp)/year
-            discount[i] = exp(-year*zero[i])
-            forward[i] = log(discount[i-1]/discount[i]) if i > 0 else zero[i]
+            zerocc[i] = (FSP*zerocc[FSP-1] + (year - FSP)*fwtemp)/year
+            discount[i] = exp(-year*zerocc[i])
+            forwardcc[i] = log(discount[i-1]/discount[i]) if i > 0 else zerocc[i]
 
-        if compounding_out == 'A':
-            for i in range(max_range):
-                forward[i] = exp(forward[i]) - 1
-                zero[i] = exp(zero[i]) - 1
+        # if compounding_out == 'A':
+        #     for i in range(max_range):
+        #         forward[i] = exp(forward[i]) - 1
+        #         zero[i] = exp(zero[i]) - 1
 
-        return zero, forward, discount
+        # Prepare output as a dictionary
+        output_dict = {
+            'Tenors': np.arange(max_range, dtype=int),
+            'Zero CC': zerocc,
+            'Forward CC': forwardcc,
+            'Discount CC': discount
+        }        
+        return pd.DataFrame(data=output_dict)
+
 
     ###############################################################
     # get_llfr
