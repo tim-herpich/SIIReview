@@ -1,5 +1,6 @@
 import numpy as np
 from math import exp, log, isnan
+import pandas as pd
 
 class Bootstrapping:
 
@@ -114,7 +115,15 @@ class Bootstrapping:
                 forward[i] = log(1 + fval) if fval > -1 else 0.0
                 zero[i] = log(1 + zval) if zval > -1 else 0.0
 
-        return zero, forward, discount
+        # Prepare output as a df
+        results_dict = {
+            'Tenors': np.arange(max_tenor, dtype=int),
+            'Zero_CC': zero,
+            'Forward_CC': forward,
+            'Discount': discount
+        }        
+        return pd.DataFrame(data=results_dict)
+
 
     ###############################################################
     # bootstrap_zero_to_zero_full
@@ -181,5 +190,13 @@ class Bootstrapping:
                 zval = zero[i]
                 forward[i] = exp(fval) - 1
                 zero[i] = exp(zval) - 1
+        
+        # Prepare output as a df
+        results_dict = {
+            'Tenors': np.arange(max_tenor, dtype=int),
+            'Zero_CC': zero,
+            'Forward_CC': forward,
+            'Discount': discount
+        }        
+        return pd.DataFrame(data=results_dict)
 
-        return zero, forward, discount

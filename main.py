@@ -43,7 +43,7 @@ def main():
     # 5) Bootstrap zero curves
     # Swap vs Zero input curves
     if cp.instrument == 'Swap' or cp.instrument == 'Bond':
-        zero_boot, fwd_boot, disc_boot = bootstr.bootstrap_swap_to_zero_full(
+        df_boot = bootstr.bootstrap_swap_to_zero_full(
             swap_rates=rate_array * 100.0,  # decimal => percentage as required by method
             dlt=dlt_array,
             coupon_freq=cp.coupon_freq,
@@ -52,7 +52,7 @@ def main():
             compounding_out=cp.compounding
         )
     else:
-        zero_boot, fwd_boot, disc_boot = bootstr.bootstrap_zero_to_zero_full(
+        df_boot = bootstr.bootstrap_zero_to_zero_full(
             # decimal => percentage as required by method
             zero_rates_init=rate_array * 100.0,
             dlt=dlt_array,
@@ -64,14 +64,14 @@ def main():
 
     # 6) Compute LLFR (No VA)
     llfr_noVA = ext_alt.get_llfr(
-        zero_rates=zero_boot,
+        zero_rates=df_boot['Zero_CC'].values,
         dlt=dlt_array,
         weights=weight_array
     )
 
     # 7) Alternative Extrapolation (No VA)
     results_Alt = ext_alt.alternative_extrapolation(
-        zero_rates=zero_boot,
+        zero_rates=df_boot['Zero_CC'].values,
         FSP=cp.FSP,
         UFR=cp.UFR,
         LLFR=llfr_noVA,
@@ -81,7 +81,7 @@ def main():
     # 8) Include new VA
     # add new VA to zero curves
     zero_boot_withNewVA = ext_alt.zero_boot_withVA(
-        fwd_boot, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread())  # Alt extrapolation uses new VA method
+        df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread())  # Alt extrapolation uses new VA method
 
     # Compute new LLFR with VA-laden zeros
     llfr_withNewVA = ext_alt.get_llfr(
@@ -113,12 +113,16 @@ def main():
         CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
     # 10) Impact Assessment on Own Funds (Alternative Extrapolation + new VA vs. SW Extrapolation + VA)
-    impact_calc.assess_impact(asset_size=cp.asset_Size, asset_duration=cp.asset_Duration,
-                              liability_size=cp.liability_Size, liability_duration=cp.liability_Duration,
-                              discount_curve_SWWithVA=results_SW_withVA[[
-                                  'Tenors', 'Zero_CC']],
-                              discount_curve_AltWithVA=results_Alt_withNewVA[['Tenors', 'Zero_CC']])
+    results_impact = impact_calc.assess_impact(asset_size=cp.asset_Size, asset_duration=cp.asset_Duration,
+                                               liability_size=cp.liability_Size, liability_duration=cp.liability_Duration,
+                                               discount_curve_SWWithVA=results_SW_withVA[[
+                                                   'Tenors', 'Zero_CC']],
+                                               discount_curve_AltWithVA=results_Alt_withNewVA[[
+                                                   'Tenors', 'Zero_CC']],
+                                               discount_curve_assets=df_boot[['Tenors','Zero_CC']]
+                                               )
 
+    results_impact
 
 if __name__ == "__main__":
     main()

@@ -49,16 +49,16 @@ class OnwFundsImpactAssessor:
         pv = cash_flow * np.exp(-discount_rate * duration)
         return pv
 
-    def calculate_pvs(self, asset_size, asset_duration, liability_size, liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA) -> dict:
+    def calculate_pvs(self, asset_size, asset_duration, liability_size, liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets):
         """
         Calculate the present values of assets and liabilities under the old (SW + VA) and the new (Alt + VA) discount curves.
 
         Returns:
-            dict: Contains PVs under the old (SW + VA) and the new (Alt + VA) discount curves.
+            Dataframe that contains PVs under the old (SW + VA) and the new (Alt + VA) discount curves.
         """
         # Old Curve (SW + VA) calculations
         ra_SWWithVA = self._interpolate_rate(
-            discount_curve_SWWithVA, asset_duration)
+            discount_curve_assets, asset_duration)
         rl_SWWithVA = self._interpolate_rate(
             discount_curve_SWWithVA, liability_duration)
 
@@ -70,7 +70,7 @@ class OnwFundsImpactAssessor:
 
         # New Curve (Alt + New VA) calculations
         ra_AltWithVA = self._interpolate_rate(
-            discount_curve_AltWithVA, asset_duration)
+            discount_curve_assets, asset_duration)
         rl_AltWithVA = self._interpolate_rate(
             discount_curve_AltWithVA, liability_duration)
 
@@ -84,28 +84,23 @@ class OnwFundsImpactAssessor:
             'PV_Assets_SWWithVA': pv_assets_SWWithVA,
             'PV_Liabilities_SWWithVA': pv_liabilities_SWWithVA,
             'Equity_SWWithVA': equity_SWWithVA,
-            'PV_Assets_AltWithVA': pv_assets_AltWithVA,
-            'PV_Liabilities_AltWithVA': pv_liabilities_AltWithVA,
-            'Equity_AltWithVA': equity_AltWithVA
+            'PV_Assets_AltWithNewVA': pv_assets_AltWithVA,
+            'PV_Liabilities_AltWithNewVA': pv_liabilities_AltWithVA,
+            'Equity_AltWithNewVA': equity_AltWithVA
         }
         return pd.DataFrame(data=results_dict, index=['Value'])
 
-    def assess_impact(self, asset_size, asset_duration, liability_size, liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA):
+    def assess_impact(self, asset_size, asset_duration, liability_size, liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets):
         """
         Assess the impact on equity by comparing two discount curves.
 
         Returns:
-            dict: Contains PVs, equities under both curves, and the impact on equity.
+            Dataframe that contains PVs, equities under both curves, and the impact on equity.
         """
         pvs = self.calculate_pvs(asset_size, asset_duration, liability_size,
-                                 liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA)
-        equity_SWWithVA = pvs['Equity_SWWithVA']
-        equity_SWWithVA = pvs['Equity_AltWithVA']
-        impact = equity_SWWithVA - equity_SWWithVA
+                                 liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets)
+        impact = pvs['Equity_AltWithNewVA'].values[0] - pvs['Equity_SWWithVA'].values[0]
+        results = pvs.copy()
+        results['Impact'] = impact
 
-        return {
-            'Portfolio__SWWithVA': pvs['Equity_SWWithVA'],
-            'Portfolio__AltWithVA': pvs['Equity_AltWithVA'],
-            'Impact': impact
-        }
-
+        return results

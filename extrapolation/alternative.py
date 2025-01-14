@@ -42,7 +42,7 @@ class ExtrapolationAlt:
         #         forward[i] = exp(forward[i]) - 1
         #         zero[i] = exp(zero[i]) - 1
 
-        # Prepare output as a dictionary
+        # Prepare output as a df
         output_dict = {
             'Tenors': np.arange(max_range, dtype=int),
             'Zero_CC': zerocc,

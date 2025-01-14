@@ -254,7 +254,7 @@ class ExtrapolationSW:
             forwardcc[i] = np.log(1 + forwardac[i])
             zerocc_arr[i] = np.log(1 + zeroac[i])
 
-        # Prepare output as a dictionary
+        # Prepare output as a df
         output_dict = {
             'Tenors': np.arange(max_v + 1, dtype=int),
             'Zero_CC': zerocc,
