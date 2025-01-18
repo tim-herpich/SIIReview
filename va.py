@@ -7,52 +7,50 @@ class VASpreadCalculator:
     A class to compute the new Valuation Adjustment (VA) spread for interest rate curves.
     """
 
-    def __init__(self):
+    def __init__(self, va_df):
 
         # EIOPA reference portfolio as of 03/24
         self.wgov_cu = pd.DataFrame(data=np.array([0.03, 0.08, 0., 0., 0., 0., 0., 0., 0.01, 0.36, 0.15, 0., 0., 0., 0.01, 0.22, 0., 0., 0., 0., 0., 0.02,
-                                                   0., 0.01, 0.01, 0., 0., 0., 0.1, 0., 0., 0., 0., 0., 0., 0., 0., 0.]),
+                                                   0., 0.01, 0.01, 0., 0., 0., 0.1, 0., 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(1, -1),
                                     columns=["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "LV", "LI",
-                                             "LT", "LU", "MT", "NL", "NO", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "CH", "UK", "AU", "CA", "CN", "HK", "JP", "US"])
+                                             "LT", "LU", "MT", "NL", "NO", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "CH", "UK", "AU", "CA", "CN", "HK", "JP", "US"], index=['EUR'])
 
-        self.wother_cu = pd.DataFrame(data=np.array([0.15, 0.12, 0.27, 0.14, 0.01, 0., 0., 0.04, 0.04, 0.09, 0.13, 0.01, 0., 0.]),
+        self.wother_cu = pd.DataFrame(data=np.array([0.15, 0.12, 0.27, 0.14, 0.01, 0., 0., 0.04, 0.04, 0.09, 0.13, 0.01, 0., 0.]).reshape(1, -1),
                                       columns=["Finan_0", "Finan_1", "Finan_2", "Finan_3", "Finan_4", "Finan_5", "Finan_6",
-                                               "Nonfinan_0", "Nonfinan_1", "Nonfinan_2", "Nonfinan_3", "Nonfinan_4", "Nonfinan_5", "Nonfinan_6"])
+                                               "Nonfinan_0", "Nonfinan_1", "Nonfinan_2", "Nonfinan_3", "Nonfinan_4", "Nonfinan_5", "Nonfinan_6"], index=['EUR'])
 
         self.durgov_cu = pd.DataFrame(data=np.array([8.5, 8.5, 0., 0., 0., 0., 0., 0., 8.5, 8.5, 8.5, 0., 0., 0., 8.5, 8.5, 0., 0., 0., 0., 0., 8.5,
-                                                     0., 5.6, 8.5, 0., 0., 0., 8.5, 0., 0., 0., 0., 0., 0., 0., 0., 0.]),
+                                                     0., 5.6, 8.5, 0., 0., 0., 8.5, 0., 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(1, -1),
                                       columns=["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "LV", "LI",
-                                               "LT", "LU", "MT", "NL", "NO", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "CH", "UK", "AU", "CA", "CN", "HK", "JP", "US"])
+                                               "LT", "LU", "MT", "NL", "NO", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "CH", "UK", "AU", "CA", "CN", "HK", "JP", "US"], index=['EUR'])
 
-        self.durother_cu = pd.DataFrame(data=np.array([7.3, 5.6, 5.6, 4.5, 3.3, 0., 0., 8.6, 8., 5.7, 4.8, 3.3, 0., 0.]),
+        self.durother_cu = pd.DataFrame(data=np.array([7.3, 5.6, 5.6, 4.5, 3.3, 0., 0., 8.6, 8., 5.7, 4.8, 3.3, 0., 0.]).reshape(1, -1),
                                         columns=["Finan_0", "Finan_1", "Finan_2", "Finan_3", "Finan_4", "Finan_5", "Finan_6",
-                                                 "Nonfinan_0", "Nonfinan_1", "Nonfinan_2", "Nonfinan_3", "Nonfinan_4", "Nonfinan_5", "Nonfinan_6"])
+                                                 "Nonfinan_0", "Nonfinan_1", "Nonfinan_2", "Nonfinan_3", "Nonfinan_4", "Nonfinan_5", "Nonfinan_6"], index=['EUR'])
 
         self.wgov_co = pd.DataFrame(data=np.array([0.04, 0.08, 0., 0., 0., 0., 0., 0., 0.01, 0.12, 0.49, 0., 0., 0., 0.02, 0.02, 0., 0., 0., 0., 0., 0.02,
-                                                   0., 0.01, 0., 0., 0.01, 0.01, 0.06, 0., 0., 0.01, 0.01, 0.01, 0.01, 0., 0.01, 0.06]),
+                                                   0., 0.01, 0., 0., 0.01, 0.01, 0.06, 0., 0., 0.01, 0.01, 0.01, 0.01, 0., 0.01, 0.06]).reshape(1, -1),
                                     columns=["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "LV", "LI",
                                              "LT", "LU", "MT", "NL", "NO", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "CH", "UK", "AU", "CA", "CN", "HK", "JP", "US"])
 
-        self.wother_co = pd.DataFrame(data=np.array([0.15, 0.12, 0.27, 0.16, 0.02, 0., 0., 0.06, 0.05, 0.08, 0.08, 0.01, 0., 0.]),
+        self.wother_co = pd.DataFrame(data=np.array([0.15, 0.12, 0.27, 0.16, 0.02, 0., 0., 0.06, 0.05, 0.08, 0.08, 0.01, 0., 0.]).reshape(1, -1),
                                       columns=["Finan_0", "Finan_1", "Finan_2", "Finan_3", "Finan_4", "Finan_5", "Finan_6",
                                                "Nonfinan_0", "Nonfinan_1", "Nonfinan_2", "Nonfinan_3", "Nonfinan_4", "Nonfinan_5", "Nonfinan_6"])
 
         self.durgov_co = pd.DataFrame(data=np.array([12.6, 16.1, 0., 0., 0., 0., 0., 0., 10.4, 14.8, 10.8, 0., 0., 0., 18.3, 8.1, 0., 0., 0., 0.,
-                                                     0., 10.4, 0., 7., 0., 0., 10.9, 13., 13.2, 0., 0., 5.8, 4.9, 3.9, 4.5, 0., 0.8, 5.6]),
+                                                     0., 10.4, 0., 7., 0., 0., 10.9, 13., 13.2, 0., 0., 5.8, 4.9, 3.9, 4.5, 0., 0.8, 5.6]).reshape(1, -1),
                                       columns=["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "LV", "LI",
                                                "LT", "LU", "MT", "NL", "NO", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "CH", "UK", "AU", "CA", "CN", "HK", "JP", "US"])
 
-        self.durother_co = pd.DataFrame(data=np.array([8.3, 7.4, 7.2, 5.7, 0., 0., 0., 11.7, 11.1, 7.9, 6.4, 0., 0., 0.]),
+        self.durother_co = pd.DataFrame(data=np.array([8.3, 7.4, 7.2, 5.7, 0., 0., 0., 11.7, 11.1, 7.9, 6.4, 0., 0., 0.]).reshape(1, -1),
                                         columns=["Finan_0", "Finan_1", "Finan_2", "Finan_3", "Finan_4", "Finan_5", "Finan_6",
                                                  "Nonfinan_0", "Nonfinan_1", "Nonfinan_2", "Nonfinan_3", "Nonfinan_4", "Nonfinan_5", "Nonfinan_6"])
 
-        self.ltsgov = pd.DataFrame(data=np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-                                                  [-0.03, 0.06, 0.11, 0.16, 0.21, 0.26, 0.30, 0.34, 0.36, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37,
-                                                   0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37]]))
+        self.ltsgov = pd.DataFrame(data=np.array([-0.03, 0.06, 0.11, 0.16, 0.21, 0.26, 0.30, 0.34, 0.36, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37,
+                                                  0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37, 0.37]).reshape(1, -1),
+                                   columns=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30], index=['EUR'])
 
         self.ltsother = pd.DataFrame(data=np.array([
-            ['Issuer', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
             ['EUR_Financials_0', 0.17, 0.17, 0.21, 0.25, 0.29, 0.32, 0.35, 0.35, 0.36, 0.38, 0.39, 0.40, 0.41,
              0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.42],
             ['EUR_Financials_1', 0.54, 0.54, 0.61, 0.68, 0.75, 0.81, 0.87, 0.89, 0.91, 0.94, 0.97, 0.99, 1.01,
@@ -81,9 +79,17 @@ class VASpreadCalculator:
              6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88],
             ['EUR_Non-Financials_6', 7.12, 7.12, 6.99, 6.90, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88,
              6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88, 6.88]
-        ], dtype=object))
+        ], dtype=object), columns=['Issuer', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                                   16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30])
+        self.ltsother.set_index('Issuer', inplace=True)
 
-    def round_duration_tenors(self):
+        self.relevant_ltas_gov_df = self._extract_relevant_ltas_gov()
+        self.relevant_ltas_other_df = self._extract_relevant_ltas_other()
+        self.lts_gov_avg = self._compute_long_term_average_gov_spread
+        self.lts_other_avg = self._compute_long_term_average_other_spread()
+        self.spreads_df = va_df
+
+    def _round_duration_tenors(self):
         """
         Rounds the duration floats in all df to integer years.
         Args:
@@ -92,17 +98,89 @@ class VASpreadCalculator:
         self.durgov_cu = self.durgov_cu.round(0).astype(int)
         self.durother_cu = self.durgov_cu.round(0).astype(int)
         self.durgov_co = self.durgov_co.round(0).astype(int)
-        self.durother_co = self.durother_co.round(0).astype(int)        
+        self.durother_co = self.durother_co.round(0).astype(int)
 
-    def compute_average_gov_cu_spread(self, spreads):
+    def _extract_relevant_ltas_gov(self):
+        """
+        Extract relevant ltas gov given the duration of govs.
+        Args:
+        Returns: relevant_ltas_gov_df
+        """
+        # Create a vector to store the relevant spreads
+        relevant_ltas_gov = []
+        for duration in self.durgov_cu.values.round(0).astype(int)[0]:
+            if duration > 0 and duration in self.ltsgov.columns:
+                spread = self.ltsgov.iloc[0, duration]
+            else:
+                spread = 0
+            relevant_ltas_gov.append(spread)
+        return pd.DataFrame(
+            data=[relevant_ltas_gov], columns=self.durgov_cu.columns, index=self.durgov_cu.index)
+
+    def _extract_relevant_ltas_other(self):
+        """
+        Extract relevant ltas other given the duration of others.
+        Args:
+        Returns: relevant_ltas_other_df
+        """
+        # Create a vector to store the relevant spreads
+        relevant_ltas_other = []
+        rows = 0
+        for duration in self.durother_cu.values.round(0).astype(int)[0]:
+            if duration > 0 and duration in self.ltsother.columns:
+                spread = self.ltsother.iloc[rows, duration]
+            else:
+                spread = 0
+            relevant_ltas_other.append(spread)
+            rows += 1
+        return pd.DataFrame(
+            data=[relevant_ltas_other], columns=self.durother_cu.columns, index=self.durother_cu.index)
+
+    def _compute_long_term_average_gov_spread(self):
+        """
+        Computes the long-term average gov spread ltas_gov for currency. Floored with zero.
+        Args:
+        Returns:
+            ltas_gov
+        """
+        ltas_gov_avg = max(
+            (self.wgov_cu * self.relevant_ltas_gov_df).sum(axis=1)[0], 0)
+        return ltas_gov_avg
+
+    def _compute_long_term_average_other_spread(self):
+        """
+        Computes the long-term average other spread ltas_other for currency. Floored with zero.
+        Args:
+        Returns:
+            ltas_other
+        """
+        ltas_other_avg = max(
+            (self.wother_cu * self.relevant_ltas_other_df).sum(axis=1)[0], 0)
+        return ltas_other_avg
+
+
+    def compute_average_gov_cu_spread(self):
         """
         Computes the average gov spread S_gov for a currency. Floored with zero.
         Args:
         Returns:
             S_gov_cu
         """
-        S_gov_cu = max((self.wgov_cu * spreads).sum(axis=1),0)
-        return S_gov_cu
+        spreads_rows_df = self.spreads_df.loc[self.wgov_cu.columns.values.tolist()]
+        # Create a vector to store the relevant spreads
+        relevant_spreads = []
+        rows = 0
+        for duration in self.durgov_cu.values.round(0).astype(int)[0]:
+            if duration > 0 and duration in spreads_rows_df.columns:
+                spread = spreads_rows_df.iloc[rows, duration]
+            else:
+                spread = 0
+            relevant_spreads.append(spread)
+            rows += 1        
+        # pd.DataFrame(data=np.array(relevant_spreads).reshape(1,-1), columns=spreads_rows_df.index)
+        spread = max( np.dot(self.wgov_cu.values,np.array(relevant_spreads))[0], 0)
+        return spread    # pd.DataFrame(data=[relevant_ltas_gov], columns=self.durgov_cu.columns, index=self.durgov_cu.index)
+
 
     def compute_average_gov_co_spread(self, spreads):
         """
@@ -111,7 +189,7 @@ class VASpreadCalculator:
         Returns:
             S_gov_co
         """
-        S_gov_co = max((self.wgov_co * spreads).sum(axis=1),0)
+        S_gov_co = max((self.wgov_co * spreads).sum(axis=1), 0)
         return S_gov_co
 
     def compute_average_other_cu_spread(self, spreads):
@@ -121,7 +199,7 @@ class VASpreadCalculator:
         Returns:
             S_other_cu
         """
-        S_other_cu = max((self.wother_cu * spreads).sum(axis=1),0)
+        S_other_cu = max((self.wother_cu * spreads).sum(axis=1), 0)
         return S_other_cu
 
     def compute_average_other_co_spread(self, spreads):
@@ -131,43 +209,31 @@ class VASpreadCalculator:
         Returns:
             S_other_co
         """
-        S_other_co = max((self.wother_co * spreads).sum(axis=1),0)
+        S_other_co = max((self.wother_co * spreads).sum(axis=1), 0)
         return S_other_co
 
-    def compute_rc_gov(self, spread_avg, ltas_avg):
+
+    def compute_rc_gov(self, spread_avg):
         """
         Computes the risk-correction for gov (RC_gov)
         Args:
         Returns:
             RC_gov
         """
-        RC_gov = min( 0.3*min(spread_avg, ltas_avg) + 0.2*max(0,min(spread_avg-ltas_avg, ltas_avg)) + 0.15*max(0,spread_avg-2*ltas_avg), 1.05*ltas_avg)
+        RC_gov = min(0.3*min(spread_avg, self.lts_gov_avg) + 0.2*max(0, min(spread_avg -
+                     self.lts_gov_avg, self.lts_gov_avg)) + 0.15*max(0, spread_avg-2*self.lts_gov_avg), 1.05*self.lts_gov_avg)
         return RC_gov
 
-    def compute_rc_other(self, spread_avg, ltas_avg):
+    def compute_rc_other(self, spread_avg):
         """
         Computes the risk-correction for other (RC_other)
         Args:
         Returns:
             RC_other
         """
-        RC_other = min( 0.5*min(spread_avg, ltas_avg) + 0.4*max(0,min(spread_avg-ltas_avg, ltas_avg)) + 0.35*max(0,spread_avg-2*ltas_avg), 1.95*ltas_avg)
+        RC_other = min(0.5*min(spread_avg, self.lts_other_avg) + 0.4*max(0, min(spread_avg -
+                       self.lts_other_avg, self.lts_other_avg)) + 0.35*max(0, spread_avg-2*self.lts_other_avg), 1.95*self.lts_other_avg)
         return RC_other
-
-
-
-    def compute_cssr_cu(self):
-        """
-        Computes the currency-specific credit spread sensitive ratio (CSSR)
-        Args:
-        Returns:
-            Currency-specific CSSR
-        """
-
-        # compute max(min( [(FI_A-FI_A*)/VA*]/(BE_L-BE_L*)/VA*,1),0)
-
-        return 1.0
-
 
     def compute_rcs_co(self):
         """
@@ -190,6 +256,18 @@ class VASpreadCalculator:
         """
 
         # compute S_co - RC_co
+
+        return 1.0
+
+    def compute_cssr_cu(self):
+        """
+        Computes the currency-specific credit spread sensitive ratio (CSSR)
+        Args:
+        Returns:
+            Currency-specific CSSR
+        """
+
+        # compute max(min( [(FI_A-FI_A*)/VA*]/(BE_L-BE_L*)/VA*,1),0)
 
         return 1.0
 

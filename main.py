@@ -15,6 +15,9 @@ def main():
     md.open_workbook()
     df_alt = md.parse_sheet_to_df('rates_alt')
     df_sw = md.parse_sheet_to_df('rates_sw')
+    df_va = md.parse_sheet_to_df('spreads_va')
+    df_va.set_index('Issuer', inplace=True)
+
     md.close_workbook()
 
     # 2) Parameters
@@ -24,7 +27,7 @@ def main():
     bootstr = Bootstrapping()
     ext_alt = ExtrapolationAlt()
     ext_sw = ExtrapolationSW()
-    va_calc = VASpreadCalculator()
+    va_calc = VASpreadCalculator(df_va)
     impact_calc = OnwFundsImpactAssessor()
 
     # 4) Prepare arrays for bootstrapping
@@ -78,10 +81,12 @@ def main():
         alpha=cp.alpha
     )
 
+    va_calc.compute_average_gov_cu_spread(df_va)
+    
     # 8) Include new VA
     # add new VA to zero curves
     zero_boot_withNewVA = ext_alt.zero_boot_withVA(
-        df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_calc.compute_va_spread())  # Alt extrapolation uses new VA method
+        df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_calc.compute_total_va())  # Alt extrapolation uses new VA method
 
     # Compute new LLFR with VA-laden zeros
     llfr_withNewVA = ext_alt.get_llfr(
