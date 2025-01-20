@@ -81,8 +81,9 @@ def main():
         alpha=cp.alpha
     )
 
-    va_calc.compute_average_gov_cu_spread(df_va)
-    
+    va_calc.compute_average_gov_cu_spread()
+    va_calc.compute_average_other_co_spread()
+        
     # 8) Include new VA
     # add new VA to zero curves
     zero_boot_withNewVA = ext_alt.zero_boot_withVA(
@@ -118,8 +119,8 @@ def main():
         CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
     # 10) Impact Assessment on Own Funds (Alternative Extrapolation + new VA vs. SW Extrapolation + VA)
-    results_impact = impact_calc.assess_impact(asset_size=cp.asset_Size, asset_duration=cp.asset_Duration,
-                                               liability_size=cp.liability_Size, liability_duration=cp.liability_Duration,
+    results_impact = impact_calc.assess_impact(asset_size=cp.asset_size, asset_duration=cp.asset_duration,
+                                               liability_size=cp.liability_size, liability_duration=cp.liability_duration,
                                                discount_curve_SWWithVA=results_SW_withVA[[
                                                    'Tenors', 'Zero_CC']],
                                                discount_curve_AltWithVA=results_Alt_withNewVA[[

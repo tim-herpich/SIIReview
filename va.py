@@ -10,6 +10,12 @@ class VASpreadCalculator:
     def __init__(self, va_df):
 
         # EIOPA reference portfolio as of 03/24
+        self.w_cu = pd.DataFrame(data=np.array([0.241, 0.377]).reshape(
+            1, -1), columns=["GOV", "OTHER",], index=['EUR'])
+
+        self.w_co = pd.DataFrame(data=np.array([0.18, 0.35]).reshape(
+            1, -1), columns=["GOV", "OTHER",], index=['DE'])
+
         self.wgov_cu = pd.DataFrame(data=np.array([0.03, 0.08, 0., 0., 0., 0., 0., 0., 0.01, 0.36, 0.15, 0., 0., 0., 0.01, 0.22, 0., 0., 0., 0., 0., 0.02,
                                                    0., 0.01, 0.01, 0., 0., 0., 0.1, 0., 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(1, -1),
                                     columns=["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "LV", "LI",
@@ -93,7 +99,7 @@ class VASpreadCalculator:
         """
         Rounds the duration floats in all df to integer years.
         Args:
-        Returns: 
+        Returns:
         """
         self.durgov_cu = self.durgov_cu.round(0).astype(int)
         self.durother_cu = self.durgov_cu.round(0).astype(int)
@@ -158,60 +164,38 @@ class VASpreadCalculator:
             (self.wother_cu * self.relevant_ltas_other_df).sum(axis=1)[0], 0)
         return ltas_other_avg
 
-
-    def compute_average_gov_cu_spread(self):
+    def compute_average_sub_spread(self, weights_df, dur_df):
         """
-        Computes the average gov spread S_gov for a currency. Floored with zero.
+        Computes the average subtype spread S_sub. Floored with zero.
         Args:
         Returns:
-            S_gov_cu
+            S_sub
         """
-        spreads_rows_df = self.spreads_df.loc[self.wgov_cu.columns.values.tolist()]
+        spreads_rows_df = self.spreads_df.loc[weights_df.columns.values.tolist(
+        )]
         # Create a vector to store the relevant spreads
         relevant_spreads = []
         rows = 0
-        for duration in self.durgov_cu.values.round(0).astype(int)[0]:
+        for duration in dur_df.values.round(0).astype(int)[0]:
             if duration > 0 and duration in spreads_rows_df.columns:
                 spread = spreads_rows_df.iloc[rows, duration]
             else:
                 spread = 0
             relevant_spreads.append(spread)
-            rows += 1        
-        # pd.DataFrame(data=np.array(relevant_spreads).reshape(1,-1), columns=spreads_rows_df.index)
-        spread = max( np.dot(self.wgov_cu.values,np.array(relevant_spreads))[0], 0)
-        return spread    # pd.DataFrame(data=[relevant_ltas_gov], columns=self.durgov_cu.columns, index=self.durgov_cu.index)
+            rows += 1
+        S_sub = max(np.dot(weights_df.values,
+                    np.array(relevant_spreads))[0], 0)
+        return S_sub
 
-
-    def compute_average_gov_co_spread(self, spreads):
+    def compute_average_spread(self, spread_gov, spread_other, w_gov, w_other):
         """
-        Computes the average gov spread S_gov for a country. Floored with zero.
+        Computes the average S or LTAS spread. Floored with zero.
         Args:
         Returns:
-            S_gov_co
+            S or LTAS
         """
-        S_gov_co = max((self.wgov_co * spreads).sum(axis=1), 0)
-        return S_gov_co
-
-    def compute_average_other_cu_spread(self, spreads):
-        """
-        Computes the average other spread S_other for a currency. Floored with zero.
-        Args:
-        Returns:
-            S_other_cu
-        """
-        S_other_cu = max((self.wother_cu * spreads).sum(axis=1), 0)
-        return S_other_cu
-
-    def compute_average_other_co_spread(self, spreads):
-        """
-        Computes the average other spread S_other for a country. Floored with zero.
-        Args:
-        Returns:
-            S_other_co
-        """
-        S_other_co = max((self.wother_co * spreads).sum(axis=1), 0)
-        return S_other_co
-
+        spread_avg = max(spread_gov * w_gov + spread_other * w_other, 0)
+        return spread_avg
 
     def compute_rc_gov(self, spread_avg):
         """
@@ -235,31 +219,16 @@ class VASpreadCalculator:
                        self.lts_other_avg, self.lts_other_avg)) + 0.35*max(0, spread_avg-2*self.lts_other_avg), 1.95*self.lts_other_avg)
         return RC_other
 
-    def compute_rcs_co(self):
+    def compute_rcs(self, spread, rc):
         """
-        Computes the country-specific risk-corrected spread (RCS)
+        Computes the risk-corrected spread (RCS)
         Args:
         Returns:
-            Country-specific RCS
+            RCS
         """
+        return (spread - rc)
 
-        # compute S_co - RC_co
-
-        return 1.0
-
-    def compute_rc_gov(self):
-        """
-        Computes the risk-corrected spread for GOV (RC_gov)
-        Args:
-        Returns:
-            RC_gov
-        """
-
-        # compute S_co - RC_co
-
-        return 1.0
-
-    def compute_cssr_cu(self):
+    def compute_cssr_cu(self, pvbp_fi_assets, pvbp_liabs):
         """
         Computes the currency-specific credit spread sensitive ratio (CSSR)
         Args:
@@ -267,11 +236,10 @@ class VASpreadCalculator:
             Currency-specific CSSR
         """
 
-        # compute max(min( [(FI_A-FI_A*)/VA*]/(BE_L-BE_L*)/VA*,1),0)
+        Cssr_cu = max(min(pvbp_fi_assets/pvbp_liabs, 1), 0)
+        return Cssr_cu
 
-        return 1.0
-
-    def compute_w_co(self):
+    def compute_w_co(self, Rcs_co, fi_asset_size, liability_size):
         """
         Computes the country-specific adjustment factor w_co
         Args:
@@ -279,9 +247,31 @@ class VASpreadCalculator:
             Country-specific w_co
         """
 
-        # w_co = max( min([self.compute_rcs_co * FI / Assets - 0.6%] / 0.3%, 1),0)
+        w_co = max(
+            min((Rcs_co * fi_asset_size / liability_size - 0.006) / 0.003, 1), 0)
+        return w_co
 
-        return 1.0
+    def compute_macro_va_(self, pvbp_fi_assets, pvbp_liabs, fi_asset_size, liability_size, spread_co, rc_co, spread_cu, rc_cu):
+        """
+        Computes the macroeconomic VA spread based on the provided zero rates and other parameters.
+        Args:
+        Returns:
+            Macro VA spread in bp
+        """
+        va_macro = 0.85*self.compute_cssr_cu(self, pvbp_fi_assets, pvbp_liabs)*max(self.compute_rcs(
+            spread_co, rc_co)-1.3*self.compute_rcs(spread_cu, rc_cu), 0)*self.compute_w_co(self.compute_rcs(spread_co, rc_co), fi_asset_size, liability_size)
+        return va_macro
+
+    def compute_currency_va_(self, pvbp_fi_assets, pvbp_liabs, spread_cu, rc_cu):
+        """
+        Computes the currency VA spread based on the currency-specific credit spread sensitive ratio and the risk-corrected spread
+        Args:
+        Returns:
+            Currency-VA spread in bp
+        """
+        va_cu = 0.85*self.compute_cssr_cu(self, pvbp_fi_assets,
+                                          pvbp_liabs)*self.compute_rcs(spread_cu, rc_cu)
+        return va_cu
 
     def compute_total_va(self):
         """
@@ -291,26 +281,3 @@ class VASpreadCalculator:
             VA spread in bp
         """
         return self.compute_macro_va_() + self.compute_currency_va_()
-
-    def compute_macro_va_(self):
-        """
-        Computes the macroeconomic VA spread based on the provided zero rates and other parameters.
-        Args:
-        Returns:
-            Macro VA spread in bp
-        """
-
-        # va_macro = 0.85*self.compute_cssr_cu()*max(self.compute_rcs_co-1.3*self.compute_rcs_cu, 0)*w_co
-
-        return 5.0
-
-    def compute_currency_va_(self):
-        """
-        Computes the currency VA spread based on the currency-specific credit spread sensitive ratio and the risk-corrected spread
-        Args:
-        Returns:
-            Currency-VA spread in bp
-        """
-        # va_cu = 0.85*self.compute_cssr_cu()*self.compute_rcs_cu()
-
-        return 5.0

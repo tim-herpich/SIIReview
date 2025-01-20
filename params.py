@@ -19,7 +19,10 @@ class CurveParameters:
         self.max_tenorofAlt = 150     # maximum tenor 150
         self.compounding = 'C'  # 'C' => continuous by default
         self.instrument = 'Swap'     # Input Rates can be "Zero", "Bond", or "Swap"
-        self.asset_Size = 1e6   # Size of Asset Portfolio
-        self.asset_Duration = 7.1   # Duration of Asset Portfolio
-        self.liability_Size = 0.95e6   # Size of Liability Portfolio
-        self.liability_Duration = 6.9   # Duration of Liability Portfolio
+        self.asset_size = 1e6   # Size of Asset Portfolio
+        self.fi_asset_size = 0.85 * self.asset_size   # FI-part of Asset Portfolio
+        self.asset_duration = 7.1   # Duration of Asset Portfolio
+        self.liability_size = 0.95e6   # Size of Liability Portfolio
+        self.liability_duration = 6.9   # Duration of Liability Portfolio
+        self.pvbp_fi_assets = 0.01 * self.asset_size   # PVBP of fixed_income asset
+        self.pvbp_liabs = 0.01 * self.liability_size  # PVBP of liabilities
