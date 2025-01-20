@@ -15,8 +15,8 @@ def main():
     md.open_workbook()
     df_alt = md.parse_sheet_to_df('rates_alt')
     df_sw = md.parse_sheet_to_df('rates_sw')
-    df_va = md.parse_sheet_to_df('spreads_va')
-    df_va.set_index('Issuer', inplace=True)
+    va_spreads_df = md.parse_sheet_to_df('spreads_va')
+    va_spreads_df.set_index('Issuer', inplace=True)
 
     md.close_workbook()
 
@@ -27,7 +27,8 @@ def main():
     bootstr = Bootstrapping()
     ext_alt = ExtrapolationAlt()
     ext_sw = ExtrapolationSW()
-    va_calc = VASpreadCalculator(df_va)
+    va_calc = VASpreadCalculator(
+        va_spreads_df, cp.fi_asset_size, cp.liability_size, cp.pvbp_fi_assets, cp.pvbp_liabs)
     impact_calc = OnwFundsImpactAssessor()
 
     # 4) Prepare arrays for bootstrapping
@@ -81,9 +82,8 @@ def main():
         alpha=cp.alpha
     )
 
-    va_calc.compute_average_gov_cu_spread()
-    va_calc.compute_average_other_co_spread()
-        
+    va_new = va_calc.compute_total_va()
+
     # 8) Include new VA
     # add new VA to zero curves
     zero_boot_withNewVA = ext_alt.zero_boot_withVA(
@@ -125,10 +125,12 @@ def main():
                                                    'Tenors', 'Zero_CC']],
                                                discount_curve_AltWithVA=results_Alt_withNewVA[[
                                                    'Tenors', 'Zero_CC']],
-                                               discount_curve_assets=df_boot[['Tenors','Zero_CC']]
+                                               discount_curve_assets=df_boot[[
+                                                   'Tenors', 'Zero_CC']]
                                                )
 
     results_impact
+
 
 if __name__ == "__main__":
     main()

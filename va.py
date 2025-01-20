@@ -7,13 +7,13 @@ class VASpreadCalculator:
     A class to compute the new Valuation Adjustment (VA) spread for interest rate curves.
     """
 
-    def __init__(self, va_df):
+    def __init__(self, va_spreads_df, fi_asset_size, liability_size, pvbp_fi_assets, pvbp_liabs):
 
         # EIOPA reference portfolio as of 03/24
         self.w_cu = pd.DataFrame(data=np.array([0.241, 0.377]).reshape(
             1, -1), columns=["GOV", "OTHER",], index=['EUR'])
 
-        self.w_co = pd.DataFrame(data=np.array([0.18, 0.35]).reshape(
+        self.w_co = pd.DataFrame(data=np.array([0.15, 0.40]).reshape(
             1, -1), columns=["GOV", "OTHER",], index=['DE'])
 
         self.wgov_cu = pd.DataFrame(data=np.array([0.03, 0.08, 0., 0., 0., 0., 0., 0., 0.01, 0.36, 0.15, 0., 0., 0., 0.01, 0.22, 0., 0., 0., 0., 0., 0.02,
@@ -91,9 +91,43 @@ class VASpreadCalculator:
 
         self.relevant_ltas_gov_df = self._extract_relevant_ltas_gov()
         self.relevant_ltas_other_df = self._extract_relevant_ltas_other()
-        self.lts_gov_avg = self._compute_long_term_average_gov_spread
+        self.lts_gov_avg = self._compute_long_term_average_gov_spread()
         self.lts_other_avg = self._compute_long_term_average_other_spread()
-        self.spreads_df = va_df
+
+        self.va_spreads_df = va_spreads_df
+        self.fi_asset_size = fi_asset_size
+        self.liability_size = liability_size
+        self.pvbp_fi_assets = pvbp_fi_assets
+        self.pvbp_liabs = pvbp_liabs
+
+        self.Sgov_cu = self._compute_average_sub_spread(
+            self.wgov_cu, self.durgov_cu)
+        self.Sgov_co = self._compute_average_sub_spread(
+            self.wgov_co, self.durgov_co)
+        self.Sother_cu = self._compute_average_sub_spread(
+            self.wother_cu, self.durother_cu)
+        self.Sother_co = self._compute_average_sub_spread(
+            self.wother_co, self.durother_co)
+        self.S_cu = self._compute_average_spread(
+            self.Sgov_cu, self.Sother_cu, self.w_cu)
+        self.S_co = self._compute_average_spread(
+            self.Sgov_co, self.Sother_co, self.w_co)
+
+        self.Rc_gov_cu = self._compute_rc_gov(self.Sgov_cu)
+        self.Rc_other_cu = self._compute_rc_gov(self.Sgov_cu)
+        self.Rc_gov_co = self._compute_rc_gov(self.Sgov_co)
+        self.Rc_other_co = self._compute_rc_gov(self.Sgov_co)
+        self.Rc_cu = self._compute_average_spread(
+            self.Rc_gov_cu, self.Rc_other_cu, self.w_cu)
+        self.Rc_co = self._compute_average_spread(
+            self.Rc_gov_co, self.Rc_other_co, self.w_co)
+
+        self.Rcs_cu = self._compute_rcs(self.S_cu, self.Rc_cu)
+        self.Rcs_co = self._compute_rcs(self.S_co, self.Rc_co)
+
+        self.Cssr_cu = self._compute_cssr_cu(pvbp_fi_assets, pvbp_liabs)
+        self.w_co = self._compute_w_co(
+            self.Rcs_co, fi_asset_size, liability_size)
 
     def _round_duration_tenors(self):
         """
@@ -164,14 +198,14 @@ class VASpreadCalculator:
             (self.wother_cu * self.relevant_ltas_other_df).sum(axis=1)[0], 0)
         return ltas_other_avg
 
-    def compute_average_sub_spread(self, weights_df, dur_df):
+    def _compute_average_sub_spread(self, weights_df, dur_df):
         """
         Computes the average subtype spread S_sub. Floored with zero.
         Args:
         Returns:
             S_sub
         """
-        spreads_rows_df = self.spreads_df.loc[weights_df.columns.values.tolist(
+        spreads_rows_df = self.va_spreads_df.loc[weights_df.columns.values.tolist(
         )]
         # Create a vector to store the relevant spreads
         relevant_spreads = []
@@ -187,39 +221,40 @@ class VASpreadCalculator:
                     np.array(relevant_spreads))[0], 0)
         return S_sub
 
-    def compute_average_spread(self, spread_gov, spread_other, w_gov, w_other):
+    def _compute_average_spread(self, spread_gov, spread_other, w_df):
         """
         Computes the average S or LTAS spread. Floored with zero.
         Args:
         Returns:
             S or LTAS
         """
-        spread_avg = max(spread_gov * w_gov + spread_other * w_other, 0)
+        spread_avg = max(
+            spread_gov * w_df.loc[:, 'GOV'][0] + spread_other * w_df.loc[:, 'OTHER'][0], 0)
         return spread_avg
 
-    def compute_rc_gov(self, spread_avg):
+    def _compute_rc_gov(self, spread_avg_gov):
         """
         Computes the risk-correction for gov (RC_gov)
         Args:
         Returns:
             RC_gov
         """
-        RC_gov = min(0.3*min(spread_avg, self.lts_gov_avg) + 0.2*max(0, min(spread_avg -
-                     self.lts_gov_avg, self.lts_gov_avg)) + 0.15*max(0, spread_avg-2*self.lts_gov_avg), 1.05*self.lts_gov_avg)
+        RC_gov = min(0.3*min(spread_avg_gov, self.lts_gov_avg) + 0.2*max(0, min(spread_avg_gov -
+                     self.lts_gov_avg, self.lts_gov_avg)) + 0.15*max(0, spread_avg_gov-2*self.lts_gov_avg), 1.05*self.lts_gov_avg)
         return RC_gov
 
-    def compute_rc_other(self, spread_avg):
+    def _compute_rc_other(self, spread_avg_other):
         """
         Computes the risk-correction for other (RC_other)
         Args:
         Returns:
             RC_other
         """
-        RC_other = min(0.5*min(spread_avg, self.lts_other_avg) + 0.4*max(0, min(spread_avg -
-                       self.lts_other_avg, self.lts_other_avg)) + 0.35*max(0, spread_avg-2*self.lts_other_avg), 1.95*self.lts_other_avg)
+        RC_other = min(0.5*min(spread_avg_other, self.lts_other_avg) + 0.4*max(0, min(spread_avg_other -
+                       self.lts_other_avg, self.lts_other_avg)) + 0.35*max(0, spread_avg_other-2*self.lts_other_avg), 1.95*self.lts_other_avg)
         return RC_other
 
-    def compute_rcs(self, spread, rc):
+    def _compute_rcs(self, spread, rc):
         """
         Computes the risk-corrected spread (RCS)
         Args:
@@ -228,7 +263,7 @@ class VASpreadCalculator:
         """
         return (spread - rc)
 
-    def compute_cssr_cu(self, pvbp_fi_assets, pvbp_liabs):
+    def _compute_cssr_cu(self, pvbp_fi_assets, pvbp_liabs):
         """
         Computes the currency-specific credit spread sensitive ratio (CSSR)
         Args:
@@ -239,7 +274,7 @@ class VASpreadCalculator:
         Cssr_cu = max(min(pvbp_fi_assets/pvbp_liabs, 1), 0)
         return Cssr_cu
 
-    def compute_w_co(self, Rcs_co, fi_asset_size, liability_size):
+    def _compute_w_co(self, Rcs_co, fi_asset_size, liability_size):
         """
         Computes the country-specific adjustment factor w_co
         Args:
@@ -251,26 +286,25 @@ class VASpreadCalculator:
             min((Rcs_co * fi_asset_size / liability_size - 0.006) / 0.003, 1), 0)
         return w_co
 
-    def compute_macro_va_(self, pvbp_fi_assets, pvbp_liabs, fi_asset_size, liability_size, spread_co, rc_co, spread_cu, rc_cu):
+    def compute_macro_va_(self):
         """
         Computes the macroeconomic VA spread based on the provided zero rates and other parameters.
         Args:
         Returns:
             Macro VA spread in bp
         """
-        va_macro = 0.85*self.compute_cssr_cu(self, pvbp_fi_assets, pvbp_liabs)*max(self.compute_rcs(
-            spread_co, rc_co)-1.3*self.compute_rcs(spread_cu, rc_cu), 0)*self.compute_w_co(self.compute_rcs(spread_co, rc_co), fi_asset_size, liability_size)
+        va_macro = 0.85*self.Cssr_cu * \
+            max(self.Rcs_co-1.3*self.Rcs_cu, 0)*self.w_co
         return va_macro
 
-    def compute_currency_va_(self, pvbp_fi_assets, pvbp_liabs, spread_cu, rc_cu):
+    def compute_currency_va_(self):
         """
         Computes the currency VA spread based on the currency-specific credit spread sensitive ratio and the risk-corrected spread
         Args:
         Returns:
             Currency-VA spread in bp
         """
-        va_cu = 0.85*self.compute_cssr_cu(self, pvbp_fi_assets,
-                                          pvbp_liabs)*self.compute_rcs(spread_cu, rc_cu)
+        va_cu = 0.85*self.Cssr_cu*self.Rcs_cu
         return va_cu
 
     def compute_total_va(self):
@@ -280,4 +314,5 @@ class VASpreadCalculator:
         Returns:
             VA spread in bp
         """
-        return self.compute_macro_va_() + self.compute_currency_va_()
+        va = (self.compute_macro_va_() + self.compute_currency_va_())
+        return va
