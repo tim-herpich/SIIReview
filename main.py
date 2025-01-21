@@ -87,7 +87,7 @@ def main():
     # 8) Include new VA
     # add new VA to zero curves
     zero_boot_withNewVA = ext_alt.zero_boot_withVA(
-        df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_calc.compute_total_va())  # Alt extrapolation uses new VA method
+        df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_new)  # Alt extrapolation uses new VA method
 
     # Compute new LLFR with VA-laden zeros
     llfr_withNewVA = ext_alt.get_llfr(
