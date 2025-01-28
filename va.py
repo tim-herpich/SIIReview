@@ -291,7 +291,7 @@ class VASpreadCalculator:
         Computes the macroeconomic VA spread based on the provided zero rates and other parameters.
         Args:
         Returns:
-            Macro VA spread in bp
+            Macro VA spread
         """
         va_macro = 0.85*self.Cssr_cu * \
             max(self.Rcs_co-1.3*self.Rcs_cu, 0)*self.w_co
@@ -302,7 +302,7 @@ class VASpreadCalculator:
         Computes the currency VA spread based on the currency-specific credit spread sensitive ratio and the risk-corrected spread
         Args:
         Returns:
-            Currency-VA spread in bp
+            Currency-VA spread
         """
         va_cu = 0.85*self.Cssr_cu*self.Rcs_cu
         return va_cu
@@ -314,5 +314,5 @@ class VASpreadCalculator:
         Returns:
             VA spread in bp
         """
-        va = (self.compute_macro_va_() + self.compute_currency_va_())
+        va = (self.compute_macro_va_() + self.compute_currency_va_())*1e4
         return va

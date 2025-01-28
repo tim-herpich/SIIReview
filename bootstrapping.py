@@ -2,6 +2,7 @@ import numpy as np
 from math import exp, log, isnan
 import pandas as pd
 
+
 class Bootstrapping:
 
     def __init__(self):
@@ -23,6 +24,32 @@ class Bootstrapping:
             fw = fw - fx/dfx
         return fw
 
+    def bootstrap_to_zero_full(self, instrument, rates, dlt, coupon_freq, compounding_in,
+                               cra, max_tenor, compounding_out):
+
+        if instrument in ['Swap', 'Bond']:
+            return self.bootstrap_swap_to_zero_full(
+                swap_rates=rates,
+                dlt=dlt,
+                coupon_freq=coupon_freq,
+                cra=cra,
+                max_tenor=max_tenor,
+                compounding_out=compounding_out
+            )
+
+        elif instrument == 'Zero':
+            return self.bootstrap_zero_to_zero_full(
+                zero_rates_init=rates,
+                dlt=dlt,
+                compounding_in=compounding_in,
+                cra=cra,
+                max_tenor=max_tenor,
+                compounding_out=compounding_out
+            )
+        else:
+            raise Exception(
+                f'The compounding {compounding_in} is not defined.')
+
     ###############################################################
     # bootstrap_swap_to_zero_full
     ###############################################################
@@ -39,14 +66,14 @@ class Bootstrapping:
             if dlt[i] == 1 and not isnan(swap_rates[i]):
                 # convert from e.g. 2.0 => 0.02 => minus CRA => final decimal
                 val_dec = swap_rates[i]/100.0 - cra/10000.0
-                valid_tenors.append(i)  
+                valid_tenors.append(i)
                 valid_swaps.append(val_dec)
 
         if len(valid_tenors) == 0:
             return zero, forward, discount
 
         # 2) first valid tenor
-        first_idx = valid_tenors[0]  
+        first_idx = valid_tenors[0]
         first_tenor = first_idx + 1  # actual year
         guess_fw = valid_swaps[0]/coupon_freq
 
@@ -121,13 +148,13 @@ class Bootstrapping:
             'Zero_CC': zero,
             'Forward_CC': forward,
             'Discount': discount
-        }        
+        }
         return pd.DataFrame(data=results_dict)
-
 
     ###############################################################
     # bootstrap_zero_to_zero_full
     ###############################################################
+
     def bootstrap_zero_to_zero_full(self, zero_rates_init, dlt,
                                     compounding_in, cra,
                                     max_tenor, compounding_out):
@@ -190,13 +217,12 @@ class Bootstrapping:
                 zval = zero[i]
                 forward[i] = exp(fval) - 1
                 zero[i] = exp(zval) - 1
-        
+
         # Prepare output as a df
         results_dict = {
             'Tenors': np.arange(max_tenor, dtype=int),
             'Zero_CC': zero,
             'Forward_CC': forward,
             'Discount': discount
-        }        
+        }
         return pd.DataFrame(data=results_dict)
-
