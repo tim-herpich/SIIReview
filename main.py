@@ -32,9 +32,10 @@ def main():
 
     # Define scenarios
     scenarios = [
-        {'name': 'low_interest_low_spreads', 'shift': 0},
-        {'name': 'low_interest_high_spreads', 'shift': 200},
-        {'name': 'high_interest_low_spreads', 'shift': 200},
+        {'name': 'base_interest_base_spreads', 'shift': 0},
+        {'name': 'low_interest_base_spreads', 'shift': -200},
+        {'name': 'base_interest_high_spreads', 'shift': 200},
+        {'name': 'high_interest_base_spreads', 'shift': 200},
         {'name': 'high_interest_high_spreads', 'shift': 200},
     ]
     # scenarios = [
@@ -50,7 +51,7 @@ def main():
         df_sw_shifted = df_sw.copy()
         va_spreads_shifted = va_spreads_df.copy()
 
-        if 'high_interest' in scenario['name']:
+        if 'high_interest' in scenario['name'] or 'low_interest' in scenario['name']:
             df_alt_shifted['Input Rates'] += scenario['shift'] / \
                 10000  # Convert bps to decimal
             df_sw_shifted['Input Rates'] += scenario['shift'] / \
