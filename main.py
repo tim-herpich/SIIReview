@@ -7,6 +7,8 @@ from extrapolation.smithwilson import ExtrapolationSW
 from va import VASpreadCalculator
 from impact import OnwFundsImpactAssessor
 from plots.curveplotter import CurvePlotter
+from plots.impactplotter import ImpactDensityPlotter
+import pandas as pd
 
 
 def main():
@@ -29,15 +31,15 @@ def main():
     impact_calc = OnwFundsImpactAssessor()
 
     # Define scenarios
-    # scenarios = [
-    #     {'name': 'low_interest_low_spreads', 'shift': 0},
-    #     {'name': 'low_interest_high_spreads', 'shift': 200},
-    #     {'name': 'high_interest_low_spreads', 'shift': 200},
-    #     {'name': 'high_interest_high_spreads', 'shift': 200},
-    # ]
     scenarios = [
-        {'name': 'low_interest_low_spreads', 'shift': 0}
+        {'name': 'low_interest_low_spreads', 'shift': 0},
+        {'name': 'low_interest_high_spreads', 'shift': 200},
+        {'name': 'high_interest_low_spreads', 'shift': 200},
+        {'name': 'high_interest_high_spreads', 'shift': 200},
     ]
+    # scenarios = [
+    #     {'name': 'low_interest_low_spreads', 'shift': 0}
+    # ]
 
     # Iterate over scenarios
     for scenario in scenarios:
@@ -74,13 +76,13 @@ def main():
 
         # Bootstrap input curves
         df_boot = bootstr.bootstrap_to_zero_full(instrument=cp.instrument,
-                                       rates=rate_array * 100.0,
-                                       dlt=dlt_array,
-                                       coupon_freq=cp.coupon_freq,
-                                       compounding_in=cp.compounding_in,
-                                       cra=cp.CRA,
-                                       max_tenor=cp.max_tenorofAlt,
-                                       compounding_out=cp.compounding_out)
+                                                 rates=rate_array * 100.0,
+                                                 dlt=dlt_array,
+                                                 coupon_freq=cp.coupon_freq,
+                                                 compounding_in=cp.compounding_in,
+                                                 cra=cp.CRA,
+                                                 max_tenor=cp.max_tenorofAlt,
+                                                 compounding_out=cp.compounding_out)
 
         # Compute LLFR (No VA)
         llfr_noVA = ext_alt.get_llfr(
@@ -133,7 +135,7 @@ def main():
 
         results_SW_withVA = ext_sw.smith_wilson_extrapolation(
             instrument='Zero', curve_data=df_sw_withVA, coupon_freq=cp.coupon_freq,
-            CRA=cp.CRA, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
+            CRA=0.0, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
         # Generate plots for the scenario
         curves = {
@@ -147,9 +149,30 @@ def main():
              'Smith-Wilson Extrapolation with VA'),
             ('Alternative Extrapolation', 'Smith-Wilson Extrapolation')
         ]
-        plotter = CurvePlotter(curves)
-        plotter.plot_comparison(
+        curve_plotter = CurvePlotter(curves)
+        curve_plotter.plot_comparison(
             pairs, scenario=scenario["name"], output_path='outputs/curves/')
+
+        results_impact = []
+        # if 'low_interest_low_spreads' in scenario.values():
+        for liability_size in np.arange(0, cp.asset_size, cp.asset_size/20.0):
+            for liability_duration in np.arange(cp.asset_duration, 2 * cp.asset_duration, cp.asset_duration/20.0):
+                impact_df = impact_calc.assess_impact(
+                    asset_size=cp.asset_size, asset_duration=cp.asset_duration, liability_size=cp.liability_size, liability_duration=liability_duration, discount_curve_SWWithVA=results_SW_withVA[[
+                        'Tenors', 'Zero_CC']], discount_curve_AltWithVA=results_Alt_withNewVA[['Tenors', 'Zero_CC']], discount_curve_assets=df_boot[['Tenors', 'Zero_CC']]
+                )
+                results_impact.append(
+                    [liability_size, liability_duration, impact_df['Own Funds Impact rel.'][0]])
+
+        results_impact_df = pd.DataFrame(results_impact, columns=[
+                                         'Liability Size', 'Liability Duration', 'Own Funds Impact'])
+
+        print(results_impact_df)
+
+        plotter = ImpactDensityPlotter(results_impact_df)
+        plotter.create_heatmap(
+            scenario=scenario["name"], output_path='outputs/impacts/')
+        results_impact
 
 
 if __name__ == "__main__":

@@ -83,10 +83,10 @@ class OnwFundsImpactAssessor:
         results_dict = {
             'PV_Assets_SWWithVA': pv_assets_SWWithVA,
             'PV_Liabilities_SWWithVA': pv_liabilities_SWWithVA,
-            'Equity_SWWithVA': equity_SWWithVA,
+            'Own_Funds_SWWithVA': equity_SWWithVA,
             'PV_Assets_AltWithNewVA': pv_assets_AltWithVA,
             'PV_Liabilities_AltWithNewVA': pv_liabilities_AltWithVA,
-            'Equity_AltWithNewVA': equity_AltWithVA
+            'Own_Funds_AltWithNewVA': equity_AltWithVA
         }
         return pd.DataFrame(data=results_dict, index=['Value'])
 
@@ -99,8 +99,9 @@ class OnwFundsImpactAssessor:
         """
         pvs = self.calculate_pvs(asset_size, asset_duration, liability_size,
                                  liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets)
-        impact = pvs['Equity_AltWithNewVA'].values[0] - pvs['Equity_SWWithVA'].values[0]
+        impact = pvs['Own_Funds_AltWithNewVA'].values[0] - pvs['Own_Funds_SWWithVA'].values[0]
         results = pvs.copy()
-        results['Impact'] = impact
-
+        results['Own Funds'] = asset_size - liability_size
+        results['Own Funds Impact'] = impact
+        results['Own Funds Impact rel.'] = impact / (asset_size - liability_size)
         return results
