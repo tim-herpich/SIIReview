@@ -21,9 +21,6 @@ def main():
     va_spreads_df.set_index('Issuer', inplace=True)
     md.close_workbook()
 
-    # Parameters
-    cp = CurveParameters()
-
     # Instantiate business logic classes
     bootstr = Bootstrapping()
     ext_alt = ExtrapolationAlt()
@@ -32,19 +29,22 @@ def main():
 
     # Define scenarios
     scenarios = [
-        {'name': 'base_interest_base_spreads', 'shift': 0},
-        {'name': 'low_interest_base_spreads', 'shift': -200},
-        {'name': 'base_interest_high_spreads', 'shift': 200},
-        {'name': 'high_interest_base_spreads', 'shift': 200},
-        {'name': 'high_interest_high_spreads', 'shift': 200},
+        {'name': 'base_interest_base_spreads', 'irshift': 0, 'csshift': 0, 'vaspread': 27},
+        {'name': 'low_interest_base_spreads', 'irshift': -200, 'csshift': 0, 'vaspread': 27},
+        {'name': 'base_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 45},
+        {'name': 'high_interest_base_spreads', 'irshift': 200, 'csshift': 0, 'vaspread': 45},
+        {'name': 'high_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 27},
     ]
     # scenarios = [
-    #     {'name': 'low_interest_low_spreads', 'shift': 0}
+    #     {'name': 'low_interest_low_spreads', 'irshift': 0}
     # ]
 
     # Iterate over scenarios
     for scenario in scenarios:
         print(f"Processing scenario: {scenario['name']}")
+
+        # Parameters
+        cp = CurveParameters(scenario['vaspread'])
 
         # Apply global shift to curves for high interest rates or spreads
         df_alt_shifted = df_alt.copy()
@@ -52,14 +52,14 @@ def main():
         va_spreads_shifted = va_spreads_df.copy()
 
         if 'high_interest' in scenario['name'] or 'low_interest' in scenario['name']:
-            df_alt_shifted['Input Rates'] += scenario['shift'] / \
+            df_alt_shifted['Input Rates'] += scenario['irshift'] / \
                 10000  # Convert bps to decimal
-            df_sw_shifted['Input Rates'] += scenario['shift'] / \
+            df_sw_shifted['Input Rates'] += scenario['irshift'] / \
                 10000  # Convert bps to decimal
 
         if 'high_spreads' in scenario['name']:
             # Convert bps to decimal
-            va_spreads_shifted += scenario['shift'] / 10000
+            va_spreads_shifted += scenario['csshift'] / 10000
 
         # Prepare arrays for bootstrapping
         dlt_array = np.zeros(cp.max_tenorofAlt)
@@ -105,6 +105,7 @@ def main():
         va_calc = VASpreadCalculator(
             va_spreads_shifted, cp.fi_asset_size, cp.liability_size, cp.pvbp_fi_assets, cp.pvbp_liabs)
         va_new = va_calc.compute_total_va()
+        print(va_new)
 
         zero_boot_withNewVA = ext_alt.zero_boot_withVA(
             df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_new)
@@ -168,7 +169,7 @@ def main():
         results_impact_df = pd.DataFrame(results_impact, columns=[
                                          'Liability Size', 'Liability Duration', 'Own Funds Impact'])
 
-        print(results_impact_df)
+        # print(results_impact_df)
 
         plotter = ImpactDensityPlotter(results_impact_df)
         plotter.create_heatmap(

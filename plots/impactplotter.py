@@ -10,6 +10,7 @@ class ImpactDensityPlotter:
         """
         Initializes the heatmap visualizer with a DataFrame.
         :param results_impact_df: Pandas DataFrame with columns ['Liability Size', 'Liability Duration', 'Own Funds Impact'].
+        :param x_multiplier: Multiplier to apply to the x-axis values.
         """
         self.results_impact_df = results_impact_df
 
@@ -31,12 +32,13 @@ class ImpactDensityPlotter:
 
         plt.figure(figsize=(10, 6))
 
-        # Use contourf to create the density heatmap
+        # Use contourf to create the density heatmap with the new colormap
         contour = plt.contourf(xi, yi, zi, levels=100, cmap='coolwarm')
 
         # Add colorbar to indicate z-values
-        plt.colorbar(contour, label='Own Funds Impact')
-        plt.xlabel('Liability Size')
+        plt.title('Own Funds Impact')
+        plt.colorbar(contour)
+        plt.xlabel('Liability Size (Scaled)')
         plt.ylabel('Liability Duration')
 
         if output_path:
