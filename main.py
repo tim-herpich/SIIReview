@@ -10,7 +10,6 @@ from plots.curveplotter import CurvePlotter
 from plots.impactplotter import ImpactDensityPlotter
 import pandas as pd
 
-
 def main():
     # Load data from Excel
     md = MarketData(filepath="inputs.xlsx")
@@ -33,6 +32,8 @@ def main():
             'irshift': 0, 'csshift': 0, 'vaspread': 27},
         {'name': 'low_interest_base_spreads',
             'irshift': -200, 'csshift': 0, 'vaspread': 27},
+        {'name': 'low_interest_high_spreads',
+            'irshift': -200, 'csshift': 100, 'vaspread': 45},
         {'name': 'base_interest_high_spreads',
             'irshift': 200, 'csshift': 100, 'vaspread': 45},
         {'name': 'high_interest_base_spreads',
@@ -40,9 +41,6 @@ def main():
         {'name': 'high_interest_high_spreads',
             'irshift': 200, 'csshift': 100, 'vaspread': 27},
     ]
-    # scenarios = [
-    #     {'name': 'low_interest_low_spreads', 'irshift': 0}
-    # ]
 
     # Iterate over scenarios
     for scenario in scenarios:
@@ -113,7 +111,7 @@ def main():
         # print(va_new)
 
         zero_boot_withNewVA = ext_alt.zero_boot_withVA(
-            df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_new)
+            df_boot['Forward_CC'].copy().values, cp.max_tenorofAlt, cp.FSP, va_new)
 
         # Compute new LLFR with VA-laden zeros
         llfr_withNewVA = ext_alt.get_llfr(
@@ -160,19 +158,18 @@ def main():
         curve_plotter.plot_comparison(
             pairs, scenario=scenario["name"], output_path='outputs/curves/')
 
-
         # Impact Assessment | Sensitivity Analysis w.r.t OF Sizes and Duration Gaps
         results_impact = []
-        for liability_size in np.arange(0.5*cp.asset_size, cp.asset_size, cp.asset_size/20.0):
-            for liability_duration in np.arange(cp.asset_duration, 2 * cp.asset_duration, cp.asset_duration/20.0):
+        for liability_size in np.arange(0.75*cp.asset_size, cp.asset_size, cp.asset_size/40.0):
+            for liability_duration in np.arange(cp.asset_duration, 1.5 * cp.asset_duration, cp.asset_duration/20.0):
 
-                # Recompute new VA 
+                # Recompute new VA
                 va_calc = VASpreadCalculator(
                     va_spreads_shifted, cp.fi_asset_size, liability_size=liability_size, pvbp_fi_assets=cp.pvbp_fi_assets, pvbp_liabs=0.1*liability_duration)
                 va_new = va_calc.compute_total_va()
 
                 zero_boot_withNewVA = ext_alt.zero_boot_withVA(
-                    df_boot['Forward_CC'].values, cp.max_tenorofAlt, cp.FSP, va_new)
+                    df_boot['Forward_CC'].copy().values, cp.max_tenorofAlt, cp.FSP, va_new)
 
                 # Recompute LLFR with VA-laden zeros
                 llfr_withNewVA = ext_alt.get_llfr(
@@ -190,20 +187,25 @@ def main():
                     alpha=cp.alpha
                 )
 
-                impact_df = impact_calc.assess_impact(
-                    asset_size=cp.asset_size, asset_duration=cp.asset_duration, liability_size=liability_size, liability_duration=liability_duration, discount_curve_SWWithVA=results_SW_withVA[[
-                        'Tenors', 'Zero_CC']], discount_curve_AltWithVA=results_Alt_withNewVA[['Tenors', 'Zero_CC']], discount_curve_assets=df_boot[['Tenors', 'Zero_CC']]
+                impacts_calc_df = impact_calc.assess_impact(
+                    asset_size=cp.asset_size, asset_duration=cp.asset_duration, liability_size=liability_size, liability_duration=liability_duration, zero_curve_SWWithVA=results_SW_withVA[[
+                        'Tenors', 'Zero_CC']], zero_curve_AltWithVA=results_Alt_withNewVA[['Tenors', 'Zero_CC']], zero_curve_assets=df_boot[['Tenors', 'Zero_CC']]
                 )
                 results_impact.append(
-                    [liability_size, liability_duration, impact_df['Own Funds Impact rel.'][0]])
+                    [cp.asset_size, impacts_calc_df['Zero Rate Assets SW'][0], impacts_calc_df['Zero Rate Assets Alternative'][0], impacts_calc_df['Assets Reevaluated'][0], cp.asset_duration,
+                     liability_size, impacts_calc_df['Zero Rate Liabilities SW'][0], impacts_calc_df[
+                         'Zero Rate Liabilities Alternative'][0], impacts_calc_df['Liabilities Reevaluated'][0], liability_duration,
+                     impacts_calc_df['Own Funds'][0], impacts_calc_df['Own Funds Reevaluated'][0],
+                     impacts_calc_df['Own Funds Impact'][0], impacts_calc_df['Own Funds Impact rel.'][0]])
 
-        results_impact_df = pd.DataFrame(results_impact, columns=[
-                                         'Liability Size', 'Liability Duration', 'Own Funds Impact'])
-
-        # print(results_impact_df)
-
-        plotter = ImpactDensityPlotter(results_impact_df)
+        results_impacts_df = pd.DataFrame(results_impact, columns=[
+            'Assets', 'Zero Rate Assets SW', 'Zero Rate Assets Alternative', 'Assets Reevaluated', 'Asset Duration', 'Liabilities', 'Zero Rate Liabilities SW', 'Zero Rate Liabilities Alternative',
+            'Liabilities Reevaluated', 'Liability Duration', 'Own Funds', 'Own Funds Reevaluated', 'Own Funds Impact', 'Own Funds Impact rel.'])
+        plotter = ImpactDensityPlotter(
+            results_impacts_df, cp.asset_size, cp.asset_duration)
         plotter.create_heatmap(
+            scenario=scenario["name"], output_path='outputs/impacts/')
+        plotter.export_data(
             scenario=scenario["name"], output_path='outputs/impacts/')
         results_impact
 

@@ -33,8 +33,6 @@ class CurveParameters:
         self.asset_duration = 6.8  # Duration of Asset Portfolio | Derivation from EIOPA reference portfolio 03/24
         self.liability_size = 0.8e6  # Size of Liability Portfolio (0.8e6)
         self.liability_duration = 10.0 # Duration of Liability Portfolio | BE (10.0)
-        # self.liability_size_base_value = 0.8e6
-        # self.liability_duration_base_value = 10.0
 
         # Required for VA
         self.fi_asset_size = 0.62 * self.asset_size   # FI-part of Asset Portfolio | Derivation from EIOPA reference portfolio 03/24

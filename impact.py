@@ -34,74 +34,74 @@ class OnwFundsImpactAssessor:
         discount_rate = interp_func(duration)
         return float(discount_rate)
 
-    def _calculate_pv(self, cash_flow, discount_rate, duration):
+    def _reevaluate_portfolio(self, portfolio_size, duration, zero_rate_alt, zero_rate_new):
         """
-        Calculate the present value of a single cash flow using continuous compounding.
+        Reevaluate the portfolio under a changing discount rate.
 
         Args:
-            cash_flow: The cash flow amount.
+            portfolio_size: The portfolio volume.
             discount_rate: The discount rate (in decimal).
-            duration: Time in years until the cash flow occurs.
+            duration: duration of portfolio.
 
         Returns:
-            float: Present value of the cash flow.
+            float: Reevaluated portfolio.
         """
-        pv = cash_flow * np.exp(-discount_rate * duration)
-        return pv
+        portfolio_size_reeval = portfolio_size * \
+            np.exp(-(zero_rate_new-zero_rate_alt) * duration)
+        return portfolio_size_reeval
 
-    def calculate_pvs(self, asset_size, asset_duration, liability_size, liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets):
+    def reevaluate_portfolios(self, asset_size, asset_duration, liability_size, liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets):
         """
-        Calculate the present values of assets and liabilities under the old (SW + VA) and the new (Alt + VA) discount curves.
+        Calculates the imapcts on assets and liabilities under the old (SW + VA) and the new (Alt + VA) discount curves.
 
         Returns:
-            Dataframe that contains PVs under the old (SW + VA) and the new (Alt + VA) discount curves.
+            Dataframe that contains imapcts on assets under the old (SW + VA) and the new (Alt + VA) discount curves.
         """
-        # Old Curve (SW + VA) calculations
+        # Asset impact calculations
         ra_SWWithVA = self._interpolate_rate(
             discount_curve_assets, asset_duration)
-        rl_SWWithVA = self._interpolate_rate(
-            discount_curve_SWWithVA, liability_duration)
-
-        pv_assets_SWWithVA = self._calculate_pv(
-            asset_size, ra_SWWithVA, asset_duration)
-        pv_liabilities_SWWithVA = self._calculate_pv(
-            liability_size, rl_SWWithVA, liability_duration)
-        equity_SWWithVA = pv_assets_SWWithVA - pv_liabilities_SWWithVA
-
-        # New Curve (Alt + New VA) calculations
         ra_AltWithVA = self._interpolate_rate(
             discount_curve_assets, asset_duration)
+        asset_size_reeval = self._reevaluate_portfolio(
+            asset_size, asset_duration, ra_SWWithVA, ra_AltWithVA)
+
+        # Liability impact calculations
+        rl_SWWithVA = self._interpolate_rate(
+            discount_curve_SWWithVA, liability_duration)
         rl_AltWithVA = self._interpolate_rate(
             discount_curve_AltWithVA, liability_duration)
+        liability_size_reeval = self._reevaluate_portfolio(
+            liability_size, liability_duration, rl_SWWithVA, rl_AltWithVA)
 
-        pv_assets_AltWithVA = self._calculate_pv(
-            asset_size, ra_AltWithVA, asset_duration)
-        pv_liabilities_AltWithVA = self._calculate_pv(
-            liability_size, rl_AltWithVA, liability_duration)
-        equity_AltWithVA = pv_assets_AltWithVA - pv_liabilities_AltWithVA
+        equity_size_reeval = asset_size_reeval - liability_size_reeval
 
         results_dict = {
-            'PV_Assets_SWWithVA': pv_assets_SWWithVA,
-            'PV_Liabilities_SWWithVA': pv_liabilities_SWWithVA,
-            'Own_Funds_SWWithVA': equity_SWWithVA,
-            'PV_Assets_AltWithNewVA': pv_assets_AltWithVA,
-            'PV_Liabilities_AltWithNewVA': pv_liabilities_AltWithVA,
-            'Own_Funds_AltWithNewVA': equity_AltWithVA
+            'Assets': asset_size,
+            'Zero Rate Assets SW': ra_SWWithVA,
+            'Zero Rate Assets Alternative': ra_AltWithVA,
+            'Assets Reevaluated': asset_size_reeval,
+            'Liabilities': liability_size,
+            'Zero Rate Liabilities SW': rl_SWWithVA,
+            'Zero Rate Liabilities Alternative': rl_AltWithVA,
+            'Liabilities Reevaluated': liability_size_reeval,
+            'Own Funds': asset_size - liability_size,
+            'Own Funds Reevaluated': equity_size_reeval,
         }
         return pd.DataFrame(data=results_dict, index=['Value'])
 
-    def assess_impact(self, asset_size, asset_duration, liability_size, liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets):
+    def assess_impact(self, asset_size, asset_duration, liability_size, liability_duration, zero_curve_SWWithVA, zero_curve_AltWithVA, zero_curve_assets):
         """
         Assess the impact on equity by comparing two discount curves.
 
         Returns:
-            Dataframe that contains PVs, equities under both curves, and the impact on equity.
+            Dataframe that contains (reevaluated) asset, liabilities, equities and the respective impacts due to differing discount curves.
         """
-        pvs = self.calculate_pvs(asset_size, asset_duration, liability_size,
-                                 liability_duration, discount_curve_SWWithVA, discount_curve_AltWithVA, discount_curve_assets)
-        impact = pvs['Own_Funds_AltWithNewVA'].values[0] - pvs['Own_Funds_SWWithVA'].values[0]
-        results = pvs.copy()
-        results['Own Funds'] = asset_size - liability_size
-        results['Own Funds Impact'] = impact
-        results['Own Funds Impact rel.'] = impact / (asset_size - liability_size)
+        results = self.reevaluate_portfolios(asset_size, asset_duration, liability_size,
+                                             liability_duration, zero_curve_SWWithVA, zero_curve_AltWithVA, zero_curve_assets)
+        impacts_own_funds = results['Own Funds Reevaluated'].values[0] - \
+            results['Own Funds'].values[0]
+        impacts_own_funds_rel = impacts_own_funds / \
+            (asset_size - liability_size)
+        results['Own Funds Impact'] = impacts_own_funds
+        results['Own Funds Impact rel.'] = impacts_own_funds_rel
         return results
