@@ -4,7 +4,7 @@ import pandas as pd
 from scipy.interpolate import griddata
 from matplotlib.colors import LinearSegmentedColormap
 
-class ImpactDensityPlotter:
+class ImpactPlotter:
     def __init__(self, results_impact_df, asset_size, asset_duration):
         """
         Initializes the heatmap visualizer with a DataFrame.
@@ -21,7 +21,7 @@ class ImpactDensityPlotter:
                   (4/255, 60/255, 88/255)]    # RGB(4,60,88) - Dark Blue
         self.custom_cmap = LinearSegmentedColormap.from_list("custom_gradient", colors, N=256)
 
-    def create_heatmap(self, scenario, output_path=None):
+    def create_impact_density_plot(self, scenario, output_path=None):
         """
         Creates and displays a density-based 2D heatmap from the results_impact_df DataFrame.
         """
@@ -67,11 +67,11 @@ class ImpactDensityPlotter:
             plt.show()
             plt.close()
 
-    def export_data(self, scenario, output_path=None):
+    def export_impact_data(self, scenario, output_path=None):
         """
         Exports the dataframe underlying the heat map
         """
-        # Save or display the plot
+        # Save the data to csv
         if output_path:
             filename = f'{scenario}.csv'
             self.results_impact_df.to_csv(f'{output_path}/{filename}', index=False)

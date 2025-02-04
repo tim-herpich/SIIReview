@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from functools import reduce
+import os 
 
 class CurvePlotter:
     """
@@ -29,11 +30,11 @@ class CurvePlotter:
         if not dfs:
             return []
 
-        # Find the common tenors across all dataframes
-        common_tenors = reduce(lambda x, y: x.merge(y, on='Tenors', how='inner'), dfs)[['Tenors']]
+        # Find the common tenors
+        common_tenors = reduce(lambda x, y: x[['Tenors']].merge(y[['Tenors']], on='Tenors', how='inner'), dfs)
 
-        # Align all dataframes to the common tenors
-        aligned_dfs = [df.merge(common_tenors, on='Tenors', how='inner').reset_index(drop=True) for df in dfs]
+        # Merge all dataframes using only 'Tenors' to avoid duplicate column suffix issues
+        aligned_dfs = [df.merge(common_tenors, on='Tenors', how='inner') for df in dfs]
         return aligned_dfs
 
     def plot_curves(self, pairs, scenario, output_path=None):
@@ -114,7 +115,32 @@ class CurvePlotter:
             plt.grid(True)
 
             if output_path:
-                plt.savefig(f"{output_path}/{interest_level}_with_VA.png", bbox_inches="tight")
+                plt.savefig(f"{output_path}{interest_level}_with_VA.png", bbox_inches="tight")
             else:
                 plt.show()
             plt.close()
+
+
+    def export_curve_data(self, output_path=None):
+        """
+        Saves all DataFrames in scenario_curves_dict to CSV files.
+        
+        Each scenario is saved as a separate file, with filenames in the format:
+        "{scenario_name}_{curve_name}.csv".
+
+        Args:
+            scenario_curves_dict (dict): A dictionary where keys are scenario names and values 
+                                        are dictionaries of DataFrames (curve names -> DataFrame).
+            output_path (str): Directory to save the CSV files.
+        """
+        # Ensure the output directory exists
+        os.makedirs(output_path, exist_ok=True)
+
+        for scenario, curves in self.scenario_curves_dict.items():
+            for curve_name, df in curves.items():
+                filename = f"{scenario}_{curve_name}.csv".replace(" ", "_")  # Format filename
+                file_path = os.path.join(output_path, filename)
+                # Save the data to csv
+                if output_path:
+                    df.to_csv(file_path, index=False)
+

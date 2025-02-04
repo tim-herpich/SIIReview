@@ -7,19 +7,22 @@ from extrapolation.smithwilson import ExtrapolationSW
 from va import VASpreadCalculator
 from impact import OnwFundsImpactAssessor
 from plots.curveplotter import CurvePlotter
-from plots.impactplotter import ImpactDensityPlotter
+from plots.impactplotter import ImpactPlotter
 import pandas as pd
 
 
 def main():
     # Load data from Excel
-    md = MarketData(filepath="inputs.xlsx")
-    md.open_workbook()
-    df_alt = md.parse_sheet_to_df('zero_rates_alt')
-    df_sw = md.parse_sheet_to_df('zero_rates_sw')
-    va_spreads_df = md.parse_sheet_to_df('spreads_va')
+    input_rates = MarketData(filepath="inputs/rates.xlsx")
+    input_spreads = MarketData(filepath="inputs/spreads.xlsx")
+    input_rates.open_workbook()
+    input_spreads.open_workbook()
+    df_alt = input_rates.parse_sheet_to_df('zero_rates_alt')
+    df_sw = input_rates.parse_sheet_to_df('zero_rates_sw')
+    va_spreads_df = input_spreads.parse_sheet_to_df('spreads_va')
     va_spreads_df.set_index('Issuer', inplace=True)
-    md.close_workbook()
+    input_rates.close_workbook()
+    input_spreads.close_workbook()
 
     # Instantiate business logic classes
     bootstr = Bootstrapping()
@@ -27,31 +30,15 @@ def main():
     ext_sw = ExtrapolationSW()
     impact_calc = OnwFundsImpactAssessor()
 
-    # Define scenarios
-    scenarios = [
-        {'name': 'low_interest_base_spreads',
-            'irshift': -200, 'csshift': 0, 'vaspread': 27},
-        {'name': 'low_interest_high_spreads',
-            'irshift': -200, 'csshift': 100, 'vaspread': 45},
-        {'name': 'base_interest_base_spreads',
-            'irshift': 0, 'csshift': 0, 'vaspread': 27},
-        {'name': 'base_interest_high_spreads',
-            'irshift': 200, 'csshift': 100, 'vaspread': 45},
-        {'name': 'high_interest_base_spreads',
-            'irshift': 200, 'csshift': 0, 'vaspread': 27},
-        {'name': 'high_interest_high_spreads',
-            'irshift': 200, 'csshift': 100, 'vaspread': 45}
-    ]
+    # Parameters
+    cp = CurveParameters()
 
     # Dictionary to store curves for different scenarios
     scenario_curves_dict = {}
 
     # Iterate over scenarios
-    for scenario in scenarios:
+    for scenario in cp.scenarios:
         print(f"Processing scenario: {scenario['name']}")
-
-        # Parameters
-        cp = CurveParameters(scenario['vaspread'])
 
         # Apply global shift to curves for high interest rates or spreads
         df_alt_shifted = df_alt.copy()
@@ -67,6 +54,9 @@ def main():
         if 'high_spreads' in scenario['name']:
             # Convert bps to decimal
             va_spreads_shifted += scenario['csshift'] / 10000
+
+        # set the legacy va spread value
+        cp.VA_value = scenario['vaspread']
 
         # Prepare arrays for bootstrapping
         dlt_array = np.zeros(cp.max_tenorofAlt)
@@ -162,7 +152,7 @@ def main():
         ]
         curve_plotter = CurvePlotter(scenario_curves_dict[scenario["name"]])
         curve_plotter.plot_curves(
-            pairs, scenario=scenario["name"], output_path='outputs/curves/')
+            pairs, scenario=scenario["name"], output_path='outputs/curves/plots/')
 
         # Impact Assessment | Sensitivity Analysis w.r.t OF Sizes and Duration Gaps
         results_impact = []
@@ -207,20 +197,23 @@ def main():
         results_impacts_df = pd.DataFrame(results_impact, columns=[
             'Assets', 'Zero Rate Assets SW', 'Zero Rate Assets Alternative', 'Assets Reevaluated', 'Asset Duration', 'Liabilities', 'Zero Rate Liabilities SW', 'Zero Rate Liabilities Alternative',
             'Liabilities Reevaluated', 'Liability Duration', 'Own Funds', 'Own Funds Reevaluated', 'Own Funds Impact', 'Own Funds Impact rel.'])
-        plotter = ImpactDensityPlotter(
+        plotter = ImpactPlotter(
             results_impacts_df, cp.asset_size, cp.asset_duration)
-        plotter.create_heatmap(
-            scenario=scenario["name"], output_path='outputs/impacts/')
-        plotter.export_data(
-            scenario=scenario["name"], output_path='outputs/impacts/')
+        plotter.create_impact_density_plot(
+            scenario=scenario["name"], output_path='outputs/impacts/plots/')
+        plotter.export_impact_data(
+            scenario=scenario["name"], output_path='outputs/impacts/data')
         results_impact
 
     # Instantiate CurvePlotter with all scenario curves for combined plotting
     curve_plotter_all = CurvePlotter(scenario_curves_dict)
-
     # Generate plots comparing different CS scenarios at the same interest rate level
     curve_plotter_all.plot_curves_cs_combined(
-        output_path='outputs/curves/combined/')
+        output_path='outputs/curves/plots/cs_combined/')
+
+    # Export curve data
+    curve_plotter_all.export_curve_data(output_path='outputs/curves/data/')
+    results_impact
 
 
 if __name__ == "__main__":

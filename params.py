@@ -4,13 +4,13 @@ class CurveParameters:
     Adjust the actual values to match your real workbook.
     """
 
-    def __init__(self, vaspread):
+    def __init__(self):
 
         # Generic
         self.compounding_in = 'A'  # compunding of input rates, 'A' => annual by default
         self.compounding_out = 'C'  # compunding of bootstrapped rates, 'C' => continuous by default
         self.instrument = 'Zero'     # Input Rates can be "Zero", "Bond", or "Swap"
-        self.VA_value = vaspread   # VA in [bp]
+        self.VA_value = float
         self.coupon_freq = 1.0  # number of annual coupon payments
 
         # Required for Alternative (Dutch) calculation
@@ -38,3 +38,20 @@ class CurveParameters:
         self.fi_asset_size = 0.62 * self.asset_size   # FI-part of Asset Portfolio | Derivation from EIOPA reference portfolio 03/24
         self.pvbp_fi_assets = 0.1 * self.asset_duration   # PVBP of fixed_income asset
         self.pvbp_liabs = 0.1 * self.liability_duration  # PVBP of liabilities
+
+        # market scenarios
+        self.scenarios = [
+        {'name': 'low_interest_base_spreads',
+            'irshift': -200, 'csshift': 0, 'vaspread': 27},
+        {'name': 'low_interest_high_spreads',
+            'irshift': -200, 'csshift': 100, 'vaspread': 45}
+        ,
+        {'name': 'base_interest_base_spreads',
+            'irshift': 0, 'csshift': 0, 'vaspread': 27},
+        {'name': 'base_interest_high_spreads',
+            'irshift': 200, 'csshift': 100, 'vaspread': 45},
+        {'name': 'high_interest_base_spreads',
+            'irshift': 200, 'csshift': 0, 'vaspread': 27},
+        {'name': 'high_interest_high_spreads',
+            'irshift': 200, 'csshift': 100, 'vaspread': 45}
+    ]
