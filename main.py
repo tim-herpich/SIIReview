@@ -10,6 +10,7 @@ from plots.curveplotter import CurvePlotter
 from plots.impactplotter import ImpactDensityPlotter
 import pandas as pd
 
+
 def main():
     # Load data from Excel
     md = MarketData(filepath="inputs.xlsx")
@@ -28,19 +29,22 @@ def main():
 
     # Define scenarios
     scenarios = [
-        {'name': 'base_interest_base_spreads',
-            'irshift': 0, 'csshift': 0, 'vaspread': 27},
         {'name': 'low_interest_base_spreads',
             'irshift': -200, 'csshift': 0, 'vaspread': 27},
         {'name': 'low_interest_high_spreads',
             'irshift': -200, 'csshift': 100, 'vaspread': 45},
+        {'name': 'base_interest_base_spreads',
+            'irshift': 0, 'csshift': 0, 'vaspread': 27},
         {'name': 'base_interest_high_spreads',
             'irshift': 200, 'csshift': 100, 'vaspread': 45},
         {'name': 'high_interest_base_spreads',
-            'irshift': 200, 'csshift': 0, 'vaspread': 45},
+            'irshift': 200, 'csshift': 0, 'vaspread': 27},
         {'name': 'high_interest_high_spreads',
-            'irshift': 200, 'csshift': 100, 'vaspread': 27},
+            'irshift': 200, 'csshift': 100, 'vaspread': 45}
     ]
+
+    # Dictionary to store curves for different scenarios
+    scenario_curves_dict = {}
 
     # Iterate over scenarios
     for scenario in scenarios:
@@ -142,20 +146,22 @@ def main():
             instrument='Zero', curve_data=df_sw_withVA, coupon_freq=cp.coupon_freq,
             CRA=0.0, UFR=cp.UFR, alpha_min=cp.alpha_min_SW, CR=cp.CR_SW, CP=cp.CP_SW)
 
-        # Generate plots for the scenario
-        curves = {
+       # Store curves in the dictionary
+        scenario_curves_dict[scenario["name"]] = {
             'Alternative Extrapolation with VA': results_Alt_withNewVA,
             'Alternative Extrapolation': results_Alt,
             'Smith-Wilson Extrapolation with VA': results_SW_withVA[:-1],
             'Smith-Wilson Extrapolation': results_SW[:-1]
         }
+
+        # Generate plots for this scenario
         pairs = [
             ('Alternative Extrapolation with VA',
              'Smith-Wilson Extrapolation with VA'),
             ('Alternative Extrapolation', 'Smith-Wilson Extrapolation')
         ]
-        curve_plotter = CurvePlotter(curves)
-        curve_plotter.plot_comparison(
+        curve_plotter = CurvePlotter(scenario_curves_dict[scenario["name"]])
+        curve_plotter.plot_curves(
             pairs, scenario=scenario["name"], output_path='outputs/curves/')
 
         # Impact Assessment | Sensitivity Analysis w.r.t OF Sizes and Duration Gaps
@@ -208,6 +214,13 @@ def main():
         plotter.export_data(
             scenario=scenario["name"], output_path='outputs/impacts/')
         results_impact
+
+    # Instantiate CurvePlotter with all scenario curves for combined plotting
+    curve_plotter_all = CurvePlotter(scenario_curves_dict)
+
+    # Generate plots comparing different CS scenarios at the same interest rate level
+    curve_plotter_all.plot_curves_cs_combined(
+        output_path='outputs/curves/combined/')
 
 
 if __name__ == "__main__":

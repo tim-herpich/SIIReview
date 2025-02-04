@@ -1,35 +1,42 @@
 import matplotlib.pyplot as plt
+import pandas as pd
+from functools import reduce
 
 class CurvePlotter:
     """
     A class to plot specified combinations of discount curves vs. tenors for given dataframes.
     """
+
     def __init__(self, curves):
         """
         Initialize the CurvePlotter with the dataframes.
 
         Args:
-            curves (dict): A dictionary containing curve names and corresponding dataframes.
+            curves (dict): A dictionary containing scenario names and their corresponding dataframes.
         """
-        self.curves = curves
+        self.scenario_curves_dict = curves
 
-    def align_dataframes(self, curve1, curve2):
+    def align_dataframes(self, *dfs):
         """
-        Ensure that two dataframes have the same length by aligning their tenors.
+        Align multiple dataframes by their common tenors.
 
         Args:
-            curve1 (pd.DataFrame): The first dataframe.
-            curve2 (pd.DataFrame): The second dataframe.
+            *dfs (pd.DataFrame): A variable number of dataframes to align.
 
         Returns:
-            tuple: Aligned dataframes (curve1_aligned, curve2_aligned).
+            list: A list of aligned dataframes.
         """
-        common_tenors = curve1['Tenors'].isin(curve2['Tenors']) & curve2['Tenors'].isin(curve1['Tenors'])
-        curve1_aligned = curve1[curve1['Tenors'].isin(curve2['Tenors'])]
-        curve2_aligned = curve2[curve2['Tenors'].isin(curve1['Tenors'])]
-        return curve1_aligned.reset_index(drop=True), curve2_aligned.reset_index(drop=True)
+        if not dfs:
+            return []
 
-    def plot_comparison(self, pairs, scenario, output_path=None):
+        # Find the common tenors across all dataframes
+        common_tenors = reduce(lambda x, y: x.merge(y, on='Tenors', how='inner'), dfs)[['Tenors']]
+
+        # Align all dataframes to the common tenors
+        aligned_dfs = [df.merge(common_tenors, on='Tenors', how='inner').reset_index(drop=True) for df in dfs]
+        return aligned_dfs
+
+    def plot_curves(self, pairs, scenario, output_path=None):
         """
         Plot specified 2-curve comparisons of Discount vs. Tenors.
 
@@ -38,26 +45,76 @@ class CurvePlotter:
             output_path (str, optional): Directory to save the plots. If None, plots are displayed.
         """
         for curve1_name, curve2_name in pairs:
-            curve1 = self.curves[curve1_name]
-            curve2 = self.curves[curve2_name]
+            curve1 = self.scenario_curves_dict[curve1_name]
+            curve2 = self.scenario_curves_dict[curve2_name]
 
-            # Align dataframes by common tenors
+            # Align the dataframes
             curve1, curve2 = self.align_dataframes(curve1, curve2)
 
             plt.figure(figsize=(10, 6))
-            plt.plot(curve1['Tenors'], curve1['Zero_CC'], label=f'{curve1_name}', marker='o')
-            plt.plot(curve2['Tenors'], curve2['Zero_CC'], label=f'{curve2_name}', marker='x')
+            plt.plot(curve1['Tenors'], curve1['Zero_CC'], label=f'{curve1_name}', linestyle='-')
+            plt.plot(curve2['Tenors'], curve2['Zero_CC'], label=f'{curve2_name}', linestyle='-')
 
-            # plt.title(f'Comparison: {curve1_name} vs. {curve2_name}', fontsize=14)
             plt.xlabel('Tenors', fontsize=12)
             plt.ylabel('Zero Rates', fontsize=12)
             plt.legend(fontsize=10)
             plt.grid(True)
 
             if output_path:
-                filename = f'{scenario}_{curve1_name}_vs_{curve2_name}.png'
-                plt.savefig(f'{output_path}/{filename}', bbox_inches='tight')
+                filename = f"{output_path}/{scenario}_{'with_VA' if 'VA' in curve1_name and 'VA' in curve2_name else ''}.png"
+                plt.savefig(filename, bbox_inches='tight')
             else:
                 plt.show()
+            plt.close()
 
+    def plot_curves_cs_combined(self, output_path=None):
+        """
+        Plot all credit spread scenarios for a given interest rate level in one figure.
+
+        Args:
+            output_path (str, optional): Directory to save the plots. If None, plots are displayed.
+        """
+        # Extract unique interest rate levels
+        interest_levels = set()
+        for scenario in self.scenario_curves_dict.keys():
+            if "low_interest" in scenario:
+                interest_levels.add("low_interest")
+            elif "base_interest" in scenario:
+                interest_levels.add("base_interest")
+            elif "high_interest" in scenario:
+                interest_levels.add("high_interest")
+
+        # Process each interest level
+        for interest_level in interest_levels:
+            curves_to_align = []
+            curve_labels = []
+
+            # Collect all VA curves for this interest level
+            for scenario, curves in self.scenario_curves_dict.items():
+                if interest_level in scenario:
+                    for curve_name, curve_data in curves.items():
+                        if 'VA' in curve_name:
+                            curves_to_align.append(curve_data)
+                            curve_labels.append(f"{scenario} - {curve_name}")
+
+            if not curves_to_align:
+                continue  # Skip if no curves exist for this interest level
+
+            # Align all dataframes
+            aligned_curves = self.align_dataframes(*curves_to_align)
+
+            # --- PLOT ALL CURVES WITH VA ---
+            plt.figure(figsize=(10, 6))
+            for curve_data, label in zip(aligned_curves, curve_labels):
+                plt.plot(curve_data['Tenors'], curve_data['Zero_CC'], label=label, linestyle='-')
+
+            plt.xlabel('Tenors', fontsize=12)
+            plt.ylabel('Zero Rates', fontsize=12)
+            plt.legend(fontsize=8)
+            plt.grid(True)
+
+            if output_path:
+                plt.savefig(f"{output_path}/{interest_level}_with_VA.png", bbox_inches="tight")
+            else:
+                plt.show()
             plt.close()
