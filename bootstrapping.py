@@ -1,14 +1,9 @@
-# curve.py
-
 import numpy as np
 from math import exp, log, isnan
+import pandas as pd
 
-class CurveLogic:
-    """
-    0-based indexing:
-      - swap_rates[i] => rate for year (i+1)
-      - if dlt[i] == 1 => year (i+1) is valid
-    """
+
+class Bootstrapping:
 
     def __init__(self):
         pass
@@ -29,15 +24,37 @@ class CurveLogic:
             fw = fw - fx/dfx
         return fw
 
+    def bootstrap_to_zero_full(self, instrument, rates, dlt, coupon_freq, compounding_in,
+                               cra, max_tenor, compounding_out):
+
+        if instrument in ['Swap', 'Bond']:
+            return self.bootstrap_swap_to_zero_full(
+                swap_rates=rates,
+                dlt=dlt,
+                coupon_freq=coupon_freq,
+                cra=cra,
+                max_tenor=max_tenor,
+                compounding_out=compounding_out
+            )
+
+        elif instrument == 'Zero':
+            return self.bootstrap_zero_to_zero_full(
+                zero_rates_init=rates,
+                dlt=dlt,
+                compounding_in=compounding_in,
+                cra=cra,
+                max_tenor=max_tenor,
+                compounding_out=compounding_out
+            )
+        else:
+            raise Exception(
+                f'The compounding {compounding_in} is not defined.')
+
     ###############################################################
     # bootstrap_swap_to_zero_full
     ###############################################################
     def bootstrap_swap_to_zero_full(self, swap_rates, dlt, coupon_freq,
                                     cra, max_tenor, compounding_out):
-        """
-        swap_rates: length = max_tenor, index i => year (i+1)
-        dlt[i]    : 1 => valid for year (i+1)
-        """
         forward = np.zeros(max_tenor)
         discount = np.ones(max_tenor)
         zero = np.zeros(max_tenor)
@@ -49,14 +66,14 @@ class CurveLogic:
             if dlt[i] == 1 and not isnan(swap_rates[i]):
                 # convert from e.g. 2.0 => 0.02 => minus CRA => final decimal
                 val_dec = swap_rates[i]/100.0 - cra/10000.0
-                valid_tenors.append(i)  
+                valid_tenors.append(i)
                 valid_swaps.append(val_dec)
 
         if len(valid_tenors) == 0:
             return zero, forward, discount
 
         # 2) first valid tenor
-        first_idx = valid_tenors[0]  
+        first_idx = valid_tenors[0]
         first_tenor = first_idx + 1  # actual year
         guess_fw = valid_swaps[0]/coupon_freq
 
@@ -125,11 +142,19 @@ class CurveLogic:
                 forward[i] = log(1 + fval) if fval > -1 else 0.0
                 zero[i] = log(1 + zval) if zval > -1 else 0.0
 
-        return zero, forward, discount
+        # Prepare output as a df
+        results_dict = {
+            'Tenors': np.arange(max_tenor, dtype=int),
+            'Zero_CC': zero,
+            'Forward_CC': forward,
+            'Discount': discount
+        }
+        return pd.DataFrame(data=results_dict)
 
     ###############################################################
     # bootstrap_zero_to_zero_full
     ###############################################################
+
     def bootstrap_zero_to_zero_full(self, zero_rates_init, dlt,
                                     compounding_in, cra,
                                     max_tenor, compounding_out):
@@ -193,118 +218,11 @@ class CurveLogic:
                 forward[i] = exp(fval) - 1
                 zero[i] = exp(zval) - 1
 
-        return zero, forward, discount
-
-    ###############################################################
-    # alternative_extrapolation
-    ###############################################################
-    def alternative_extrapolation(self, zero_rates_cc, FSP, UFR, LLFR,
-                                  alpha, compounding):
-        """
-        zero_rates_cc: length = max_tenor, index i => year (i+1)
-        FSP: e.g. 30 => means array index = 29
-        """
-        max_range = len(zero_rates_cc)
-        discount = np.zeros(max_range)
-        forward = np.zeros(max_range)
-        zero = np.zeros(max_range)
-
-        # init year=1 => index=0
-        discount[0] = exp(-zero_rates_cc[0])
-        zero[0] = zero_rates_cc[0]
-        forward[0] = zero[0]
-
-        # fill up to FSP-1 => index (FSP-1)
-        for i in range(1, FSP):
-            year = i+1
-            zero[i] = zero_rates_cc[i]
-            forward[i] = year*zero[i] - (year-1)*zero[i-1]
-            discount[i] = discount[i-1]*exp(-forward[i])
-
-        ln_ufr = log(1 + UFR)
-        # from index=FSP..(max_range-1)
-        for i in range(FSP, max_range):
-            year = i+1
-            fwtemp = ln_ufr + (LLFR - ln_ufr)*(1 - exp(-alpha*(year - FSP))) / (alpha*(year - FSP))
-            zero[i] = (FSP*zero[FSP-1] + (year - FSP)*fwtemp)/year
-            discount[i] = exp(-year*zero[i])
-            forward[i] = log(discount[i-1]/discount[i]) if i > 0 else zero[i]
-
-        if compounding == 'A':
-            for i in range(max_range):
-                forward[i] = exp(forward[i]) - 1
-                zero[i] = exp(zero[i]) - 1
-
-        return zero, forward, discount
-
-    ###############################################################
-    # get_llfr
-    ###############################################################
-    def get_llfr(self, zero_rates, dlt, weights):
-        """
-        zero_rates, dlt, weights => length=max_tenor, index i => year i+1
-        """
-        pos_idx = []
-        pos_wts = []
-        sum_w = 0.0
-        n = len(weights)
-        for i in range(n):
-            if weights[i] > 0:
-                pos_idx.append(i)
-                pos_wts.append(weights[i])
-                sum_w += weights[i]
-        if abs(sum_w - 1.0) > 1e-12:
-            raise ValueError("LLFR weights do not sum to 1.")
-
-        if not pos_idx:
-            return 0.0
-
-        fsp_idx = pos_idx[0]
-        # year = fsp_idx + 1
-        # find LLPbeforeFSP => largest j < fsp_idx with dlt[j]==1
-        LLPbefore = -1
-        for j in range(fsp_idx):
-            if dlt[j] == 1:
-                LLPbefore = j
-
-        # Weighted sum of forward segments
-        # forward( A->B ) = [ B*Z(B) - A*Z(A) ] / ( B - A )
-        # but B= (fsp_idx + 1), A= (LLPbefore + 1)
-        llfr_val = 0.0
-        if LLPbefore >= 0 and fsp_idx > LLPbefore:
-            B = fsp_idx + 1
-            A = LLPbefore + 1
-            seg_fw = ((B*zero_rates[fsp_idx]) - (A*zero_rates[LLPbefore]))/(B - A)
-            llfr_val += pos_wts[0] * seg_fw
-
-        # subsequent segments => (fsp -> t_i)
-        for idx in range(1, len(pos_idx)):
-            i2 = pos_idx[idx]
-            B = i2 + 1
-            A = fsp_idx + 1
-            seg_fw = ((B*zero_rates[i2]) - (A*zero_rates[fsp_idx]))/(B - A)
-            llfr_val += pos_wts[idx] * seg_fw
-
-        return llfr_val
-
-    def get_first_fw_llfr(self, zero_rates, dlt, weights):
-        """
-        first forward from LLPbeforeFSP -> fsp_idx
-        """
-        pos_idx = [i for i in range(len(weights)) if weights[i]>0]
-        if not pos_idx:
-            return 0.0
-        fsp_idx = pos_idx[0]
-
-        LLPbefore = -1
-        for j in range(fsp_idx):
-            if dlt[j] == 1:
-                LLPbefore = j
-
-        if LLPbefore < 0 or fsp_idx <= LLPbefore:
-            return 0.0
-
-        B = fsp_idx + 1
-        A = LLPbefore + 1
-        seg_fw = ((B*zero_rates[fsp_idx]) - (A*zero_rates[LLPbefore]))/(B - A)
-        return seg_fw
+        # Prepare output as a df
+        results_dict = {
+            'Tenors': np.arange(max_tenor, dtype=int),
+            'Zero_CC': zero,
+            'Forward_CC': forward,
+            'Discount': discount
+        }
+        return pd.DataFrame(data=results_dict)
