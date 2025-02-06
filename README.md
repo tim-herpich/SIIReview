@@ -118,5 +118,5 @@ For questions, suggestions, or issues, please feel free to reach out via:
 
 ---
 
-**Developed with for the Makret and Non-Financial Risk Cluster**
+**Developed for the Makret and Non-Financial Risk Cluster**
 
