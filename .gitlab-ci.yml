@@ -5,17 +5,6 @@ stages:
   - build
   - test
 
-# Install dependencies before each job
-before_script:
-  - python --version
-  - pip install --upgrade pip
-  - |
-    if [ -f requirements.txt ]; then
-      pip install -r requirements.txt
-    else
-      echo "No requirements.txt found, skipping dependency installation."
-    fi
-
 build:
   stage: build
   script:
@@ -30,5 +19,5 @@ test:
       if command -v pytest >/dev/null 2>&1; then
         pytest
       else
-        echo "pytest not found, please add it to your requirements.txt if tests are available."
+        echo "pytest not found."
       fi
