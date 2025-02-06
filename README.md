@@ -1,8 +1,8 @@
 # Interest Rate Curve Bootstrapping, Extrapolation & Impact Analysis
 
-This project generates and compares interest rate curves using the current **Solvency II (SII)** and the **future Solvency II Review extrapolation methods**.  
-It implements both the **Smith-Wilson** and **Dutch (Alternative) extrapolation methods**. The **volatility adjustment (VA)** is treated as an input for Smith-Wilson, while it is **computed dynamically** for the Dutch method based on the proposed SII Review framework.  
-Additionally, the project **assesses the impact on own funds** resulting from different interest rate curve extrapolation methodologies.
+This project generates and compares interest rate curves using the current **Solvency II (SII)** and the proposed **future Solvency II Review** methodologies.  
+Explicitly, it implements both the **Smith-Wilson** and **Dutch (Alternative) extrapolation methods**. The **volatility adjustment (VA)** is treated as an input for Smith-Wilson, it computed dynamically for the Dutch method based on the proposed SII Review framework.  
+Additionally, the project assesses the **impact on own funds** resulting from different interest rate curve extrapolation methodologies.
 
 ---
 
@@ -14,7 +14,7 @@ Additionally, the project **assesses the impact on own funds** resulting from di
 - **Extrapolation Methods**: 
   - **Alternative Extrapolation** using the Dutch (Alternative) approach.
   - **Smith–Wilson Extrapolation** using the Smith-Wilson approach.
-- **VA Spread Calculation**: Computes the **Volatility Adjustment (VA)** as per the SII Review.
+- **VA Spread Calculation**: Computes the Volatility Adjustment (VA) as per the SII Review.
 - **Impact Analysis**: Assesses own funds impact under different extrapolation methodologies.
 - **Plotting and Visualization**: Generates plots for:
   - **Extrapolated Yield Curves**
