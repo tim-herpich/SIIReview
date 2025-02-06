@@ -1,60 +1,70 @@
+"""
+Module for plotting discount curves and exporting curve data.
+"""
+
+import os
 import matplotlib.pyplot as plt
 import pandas as pd
 from functools import reduce
-import os 
+
 
 class CurvePlotter:
     """
-    A class to plot specified combinations of discount curves vs. tenors for given dataframes.
+    Class for plotting discount curves (e.g., zero rate curves) across scenarios.
     """
 
-    def __init__(self, curves):
+    def __init__(self, curves: dict):
         """
-        Initialize the CurvePlotter with the dataframes.
+        Initialize the CurvePlotter.
 
         Args:
-            curves (dict): A dictionary containing scenario names and their corresponding dataframes.
+            curves (dict): Dictionary mapping scenario (or curve) names to their corresponding DataFrames.
+                Each DataFrame should contain at least the columns 'Tenors' and 'Zero_CC'.
         """
         self.scenario_curves_dict = curves
 
-    def align_dataframes(self, *dfs):
+    def align_dataframes(self, *dfs: pd.DataFrame) -> list:
         """
-        Align multiple dataframes by their common tenors.
+        Align multiple DataFrames by their common 'Tenors' column.
 
         Args:
-            *dfs (pd.DataFrame): A variable number of dataframes to align.
+            *dfs (pd.DataFrame): A variable number of DataFrames to align.
 
         Returns:
-            list: A list of aligned dataframes.
+            list: A list of aligned DataFrames.
         """
         if not dfs:
             return []
-
-        # Find the common tenors
-        common_tenors = reduce(lambda x, y: x[['Tenors']].merge(y[['Tenors']], on='Tenors', how='inner'), dfs)
-
-        # Merge all dataframes using only 'Tenors' to avoid duplicate column suffix issues
+        # Find the common 'Tenors' across all DataFrames
+        common_tenors = reduce(
+            lambda x, y: x[['Tenors']].merge(y[['Tenors']], on='Tenors', how='inner'),
+            dfs
+        )
         aligned_dfs = [df.merge(common_tenors, on='Tenors', how='inner') for df in dfs]
         return aligned_dfs
 
-    def plot_curves(self, pairs, scenario, output_path=None):
+    def plot_curves(self, pairs: list, scenario: str, output_path: str = None) -> None:
         """
-        Plot specified 2-curve comparisons of Discount vs. Tenors.
+        Plot specified pairs of curves for comparison.
 
         Args:
-            pairs (list of tuples): List of tuples containing curve name pairs to compare.
-            output_path (str, optional): Directory to save the plots. If None, plots are displayed.
+            pairs (list of tuples): Each tuple contains two keys from the curves dictionary to compare.
+            scenario (str): The scenario name (used in the plot title and filename).
+            output_path (str, optional): Directory to save the plots. If not provided, plots are displayed.
         """
         for curve1_name, curve2_name in pairs:
+            # Retrieve curves from the dictionary
             curve1 = self.scenario_curves_dict[curve1_name]
             curve2 = self.scenario_curves_dict[curve2_name]
 
-            # Align the dataframes
-            curve1, curve2 = self.align_dataframes(curve1, curve2)
+            # Align the data based on common tenors
+            curve1_aligned, curve2_aligned = self.align_dataframes(curve1, curve2)
 
             plt.figure(figsize=(10, 6))
-            plt.plot(curve1['Tenors'], curve1['Zero_CC'], label=f'{curve1_name}', linestyle='-')
-            plt.plot(curve2['Tenors'], curve2['Zero_CC'], label=f'{curve2_name}', linestyle='-')
+            plt.plot(curve1_aligned['Tenors'], curve1_aligned['Zero_CC'],
+                     label=curve1_name, linestyle='-')
+            plt.plot(curve2_aligned['Tenors'], curve2_aligned['Zero_CC'],
+                     label=curve2_name, linestyle='-')
 
             plt.xlabel('Tenors', fontsize=12)
             plt.ylabel('Zero Rates', fontsize=12)
@@ -62,20 +72,25 @@ class CurvePlotter:
             plt.grid(True)
 
             if output_path:
-                filename = f"{output_path}/{scenario}_{'with_VA' if 'VA' in curve1_name and 'VA' in curve2_name else ''}.png"
+                os.makedirs(output_path, exist_ok=True)
+                # Append 'with_VA' in filename if both curves contain "VA" in their names
+                suffix = "_with_VA" if ("VA" in curve1_name and "VA" in curve2_name) else ""
+                filename = os.path.join(output_path, f"{scenario}{suffix}.png")
                 plt.savefig(filename, bbox_inches='tight')
             else:
                 plt.show()
             plt.close()
 
-    def plot_curves_cs_combined(self, output_path=None):
+    def plot_curves_cs_combined(self, output_path: str = None) -> None:
         """
-        Plot all credit spread scenarios for a given interest rate level in one figure.
+        Plot all credit spread scenarios (i.e. curves with 'VA' in the name) for each interest rate level in one figure.
+
+        The method first identifies unique interest rate levels based on scenario names.
 
         Args:
-            output_path (str, optional): Directory to save the plots. If None, plots are displayed.
+            output_path (str, optional): Directory to save the plots. If not provided, plots are displayed.
         """
-        # Extract unique interest rate levels
+        # Determine unique interest rate levels from the scenario names
         interest_levels = set()
         for scenario in self.scenario_curves_dict.keys():
             if "low_interest" in scenario:
@@ -85,12 +100,11 @@ class CurvePlotter:
             elif "high_interest" in scenario:
                 interest_levels.add("high_interest")
 
-        # Process each interest level
+        # For each interest level, collect curves with 'VA' in the name and plot them together
         for interest_level in interest_levels:
             curves_to_align = []
             curve_labels = []
 
-            # Collect all VA curves for this interest level
             for scenario, curves in self.scenario_curves_dict.items():
                 if interest_level in scenario:
                     for curve_name, curve_data in curves.items():
@@ -99,15 +113,13 @@ class CurvePlotter:
                             curve_labels.append(f"{scenario} - {curve_name}")
 
             if not curves_to_align:
-                continue  # Skip if no curves exist for this interest level
+                continue
 
-            # Align all dataframes
             aligned_curves = self.align_dataframes(*curves_to_align)
-
-            # --- PLOT ALL CURVES WITH VA ---
             plt.figure(figsize=(10, 6))
             for curve_data, label in zip(aligned_curves, curve_labels):
-                plt.plot(curve_data['Tenors'], curve_data['Zero_CC'], label=label, linestyle='-')
+                plt.plot(curve_data['Tenors'], curve_data['Zero_CC'],
+                         label=label, linestyle='-')
 
             plt.xlabel('Tenors', fontsize=12)
             plt.ylabel('Zero Rates', fontsize=12)
@@ -115,32 +127,31 @@ class CurvePlotter:
             plt.grid(True)
 
             if output_path:
-                plt.savefig(f"{output_path}{interest_level}_with_VA.png", bbox_inches="tight")
+                os.makedirs(output_path, exist_ok=True)
+                filename = os.path.join(output_path, f"{interest_level}_with_VA.png")
+                plt.savefig(filename, bbox_inches="tight")
             else:
                 plt.show()
             plt.close()
 
-
-    def export_curve_data(self, output_path=None):
+    def export_curve_data(self, output_path: str = None) -> None:
         """
-        Saves all DataFrames in scenario_curves_dict to CSV files.
-        
-        Each scenario is saved as a separate file, with filenames in the format:
+        Export all curve data to CSV files.
+
+        Each scenario is saved as a separate CSV file with filenames in the format:
         "{scenario_name}_{curve_name}.csv".
 
         Args:
-            scenario_curves_dict (dict): A dictionary where keys are scenario names and values 
-                                        are dictionaries of DataFrames (curve names -> DataFrame).
-            output_path (str): Directory to save the CSV files.
+            output_path (str, optional): Directory to save the CSV files.
         """
-        # Ensure the output directory exists
-        os.makedirs(output_path, exist_ok=True)
-
+        if output_path:
+            os.makedirs(output_path, exist_ok=True)
         for scenario, curves in self.scenario_curves_dict.items():
             for curve_name, df in curves.items():
-                filename = f"{scenario}_{curve_name}.csv".replace(" ", "_")  # Format filename
-                file_path = os.path.join(output_path, filename)
-                # Save the data to csv
+                filename = f"{scenario}_{curve_name}.csv".replace(" ", "_")
                 if output_path:
+                    file_path = os.path.join(output_path, filename)
                     df.to_csv(file_path, index=False)
-
+                else:
+                    print(f"Exporting {filename}...")
+                    df.to_csv(filename, index=False)
