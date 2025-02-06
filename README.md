@@ -107,11 +107,6 @@ Contributions to this project are highly encouraged! Follow these steps to contr
 4. **Push** to your branch.
 5. Open a **Pull Request** for review.
 
----
-
-## 📜 License
-
-This project is licensed under the **MIT License**.
 
 ---
 
