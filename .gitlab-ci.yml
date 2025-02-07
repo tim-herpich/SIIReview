@@ -6,7 +6,7 @@ stages:
 
 before_script:
   - pip install --upgrade pip
-  - pip install numpy pandas scipy matplotlib sys os functool math pytest  # Install missing dependencies
+  - pip install numpy pandas scipy matplotlib pytest  # Removed invalid packages
 
 build:
   stage: build
@@ -18,4 +18,4 @@ test:
   stage: test
   script:
     - echo "Running tests..."
-    - pytest || echo "Tests failed"
+    - pytest
