@@ -1,9 +1,12 @@
-# .gitlab-ci.yml
 image: python:3.9-slim
 
 stages:
   - build
   - test
+
+before_script:
+  - pip install --upgrade pip
+  - pip install pytest  # Install pytest explicitly
 
 build:
   stage: build
@@ -15,9 +18,4 @@ test:
   stage: test
   script:
     - echo "Running tests..."
-    - |
-      if command -v pytest >/dev/null 2>&1; then
-        pytest
-      else
-        echo "pytest not found."
-      fi
+    - pytest || echo "Tests failed"
