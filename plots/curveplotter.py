@@ -104,22 +104,26 @@ class CurvePlotter:
         for interest_level in interest_levels:
             curves_to_align = []
             curve_labels = []
-
+            curve_styles = []
             for scenario, curves in self.scenario_curves_dict.items():
                 if interest_level in scenario:
                     for curve_name, curve_data in curves.items():
                         if 'VA' in curve_name:
                             curves_to_align.append(curve_data)
-                            curve_labels.append(f"{scenario} - {curve_name}")
+                            # curve_label = ' '.join(word.capitalize() for word in scenario.split('_'))
+                            curve_labels.append(' '.join(word.capitalize() for word in scenario.split('_')) + f" - {curve_name}")
+                            line_style = '-' if 'base_spreads' in scenario else '--'
+                            curve_styles.append(line_style)  # Store the line style
+
 
             if not curves_to_align:
                 continue
 
             aligned_curves = self.align_dataframes(*curves_to_align)
             plt.figure(figsize=(10, 6))
-            for curve_data, label in zip(aligned_curves, curve_labels):
+            for curve_data, label, curve_line_style in zip(aligned_curves, curve_labels, curve_styles):
                 plt.plot(curve_data['Tenors'], curve_data['Zero_CC'],
-                         label=label, linestyle='-')
+                         label=label, linestyle=curve_line_style)
 
             plt.xlabel('Tenors', fontsize=12)
             plt.ylabel('Zero Rates', fontsize=12)
