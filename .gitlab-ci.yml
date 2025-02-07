@@ -6,7 +6,7 @@ stages:
 
 before_script:
   - pip install --upgrade pip
-  - pip install pytest  # Install pytest explicitly
+  - pip install numpy pandas scipy matplotlib sys os functool math pytest  # Install missing dependencies
 
 build:
   stage: build
