@@ -151,3 +151,5 @@ class ImpactPlotter:
             os.makedirs(output_path, exist_ok=True)
             filename = os.path.join(output_path, f"{scenario}.csv")
             scenario_df.to_csv(filename, index=False)
+        else:
+            print(f"No output path given.\n\nPrint: {scenario_df}")

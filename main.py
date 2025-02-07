@@ -13,6 +13,7 @@ from va import VaSpreadCalculator
 from impact import ImpactCalculator
 from plots.curveplotter import CurvePlotter
 from plots.impactplotter import ImpactPlotter
+from itertools import combinations
 
 
 def main():
@@ -61,7 +62,8 @@ def main():
 
         # Apply spread shifts if required
         if 'high_spreads' in scenario['name']:
-            va_spreads_shifted += scenario['csshift'] / 10000  # convert bps to decimal
+            # convert bps to decimal
+            va_spreads_shifted += scenario['csshift'] / 10000
 
         # Set the legacy VA spread value from scenario
         cp.VA_value = scenario['vaspread']
@@ -183,15 +185,6 @@ def main():
             'Smith-Wilson Extrapolation': results_sw[:-1]
         }
 
-        # Plot the curves for this scenario
-        curve_plotter = CurvePlotter(curves=scenario_curves_dict[scenario["name"]])
-        pairs = [
-            ('Alternative Extrapolation with VA', 'Smith-Wilson Extrapolation with VA'),
-            ('Alternative Extrapolation', 'Smith-Wilson Extrapolation')
-        ]
-        curve_plotter.plot_curves(pairs=pairs, scenario=scenario["name"],
-                                  output_path='outputs/curves/plots/')
-
         # Impact assessment over a range of liability sizes and durations
         for liability_size in np.arange(cp.liability_size_low_bound,
                                         cp.liability_size_high_bound,
@@ -205,7 +198,7 @@ def main():
                     fi_asset_size=cp.fi_asset_size,
                     liability_size=liability_size,
                     pvbp_fi_assets=cp.pvbp_fi_assets,
-                    pvbp_liabs=0.1 * liability_duration
+                    pvbp_liabs=cp.pvbp_liabs
                 )
                 va_new_dynamic = va_calc_dynamic.compute_total_va()
 
@@ -235,8 +228,10 @@ def main():
                     asset_duration=cp.asset_duration,
                     liability_size=liability_size,
                     liability_duration=liability_duration,
-                    zero_curve_SWWithVA=results_sw_withVA[['Tenors', 'Zero_CC']],
-                    zero_curve_AltWithVA=results_alt_with_new_VA_dynamic[['Tenors', 'Zero_CC']],
+                    zero_curve_SWWithVA=results_sw_withVA[[
+                        'Tenors', 'Zero_CC']],
+                    zero_curve_AltWithVA=results_alt_with_new_VA_dynamic[[
+                        'Tenors', 'Zero_CC']],
                     zero_curve_assets=boot_df[['Tenors', 'Zero_CC']]
                 )
                 results_impact_density.append({
@@ -258,16 +253,68 @@ def main():
                 })
 
     # Export and plot combined curve data
-    curve_plotter_all = CurvePlotter(curves=scenario_curves_dict)
-    curve_plotter_all.plot_curves_cs_combined(output_path='outputs/curves/plots/cs_combined/')
-    curve_plotter_all.export_curve_data(output_path='outputs/curves/data/')
+    curve_plotter = CurvePlotter(curves=scenario_curves_dict)
+    curve_plotter.plot_curves_cs_combined(
+        output_path='outputs/curves/plots/cs_combined/')
+    curve_plotter.export_curve_data(output_path='outputs/curves/data/')
+    curve_plotter.plot_curves(scenario_curves_dict, output_path='outputs/curves/plots/')
+
+    # Export and plot curve data differences
+    curve_diff_dict = {}  # Store differences
+
+    # Differences for a given scenario
+    for scenario_name, curves in scenario_curves_dict.items():
+        # Compute difference for same scenario, different extrapolation methods
+        diff_alt_vs_sw_with_va = curve_plotter.compute_curve_difference(
+            curves['Alternative Extrapolation with VA'],
+            curves['Smith-Wilson Extrapolation with VA']
+        )
+        curve_diff_dict[f"{scenario_name}_Alternative_Extrapolation_vs_Smith-Wilson_Extrapolation_with_VA"] = diff_alt_vs_sw_with_va
+        diff_alt_vs_sw = curve_plotter.compute_curve_difference(
+            curves['Alternative Extrapolation'],
+            curves['Smith-Wilson Extrapolation']
+        )
+        curve_diff_dict[f"{scenario_name}_Alternative_Extrapolation_vs_Smith-Wilson_Extrapolation"] = diff_alt_vs_sw
+
+    # Differences for a given method
+    scenario_names = list(scenario_curves_dict.keys())
+    # Generates unique pairs
+    for scenario_1, scenario_2 in combinations(scenario_names, 2):
+        diff_alt_with_va = curve_plotter.compute_curve_difference(
+            scenario_curves_dict[scenario_1]['Alternative Extrapolation with VA'],
+            scenario_curves_dict[scenario_2]['Alternative Extrapolation with VA']
+        )
+        diff_sw_with_va = curve_plotter.compute_curve_difference(
+            scenario_curves_dict[scenario_1]['Smith-Wilson Extrapolation with VA'],
+            scenario_curves_dict[scenario_2]['Smith-Wilson Extrapolation with VA']
+        )
+        diff_alt = curve_plotter.compute_curve_difference(
+            scenario_curves_dict[scenario_1]['Alternative Extrapolation'],
+            scenario_curves_dict[scenario_2]['Alternative Extrapolation']
+        )
+        diff_sw = curve_plotter.compute_curve_difference(
+            scenario_curves_dict[scenario_1]['Smith-Wilson Extrapolation'],
+            scenario_curves_dict[scenario_2]['Smith-Wilson Extrapolation']
+        )
+
+        # Store the computed differences
+        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Alternative_Extrapolation_with_VA"] = diff_alt_with_va
+        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Smith-Wilson_Extrapolation_with_VA"] = diff_sw_with_va
+        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Alternative_Extrapolation"] = diff_alt
+        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Smith-Wilson_Extrapolation"] = diff_sw
+
+    curve_plotter.export_curve_diff_data(
+        curve_diff_dict=curve_diff_dict, output_path='outputs/curves/data/diffs')
+    curve_plotter.plot_curve_diffs(curve_diff_dict=curve_diff_dict, output_path='outputs/curves/plots/diffs/')
+
 
     # Plot and export impact data
     results_impacts_df = pd.DataFrame(results_impact_density)
     impact_plotter = ImpactPlotter(results_impact_df=results_impacts_df,
                                    asset_size=cp.asset_size,
                                    asset_duration=cp.asset_duration)
-    impact_plotter.plot_liability_size_vs_impact_overlay(output_path='outputs/impacts/plots/')
+    impact_plotter.plot_liability_size_vs_impact_overlay(
+        output_path='outputs/impacts/plots/')
     for scenario in cp.scenarios:
         impact_plotter.create_impact_density_plot(scenario=scenario["name"],
                                                   output_path='outputs/impacts/plots/')
