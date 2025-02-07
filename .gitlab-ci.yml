@@ -4,9 +4,15 @@ stages:
   - build
   - test
 
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
 before_script:
+  - echo "Setting up the environment..."
+  - python -m venv venv  # Create a virtual environment
+  - source venv/bin/activate
   - pip install --upgrade pip
-  - pip install numpy pandas scipy matplotlib pytest openpyxl # Removed invalid packages
+  - pip install --no-cache-dir --upgrade --requirement <(echo numpy pandas scipy matplotlib pytest openpyxl)
 
 build:
   stage: build
@@ -18,4 +24,6 @@ test:
   stage: test
   script:
     - echo "Running tests..."
-    - pytest
+    - TEST_OUTPUT=$(pytest --tb=short --maxfail=5 | tee /dev/tty)
+    - echo "$TEST_OUTPUT" | grep -oP '(\d+) passed' | tee success_count.txt
+    - echo "✅ $(cat success_count.txt) tests passed successfully!"
