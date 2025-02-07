@@ -5,8 +5,8 @@ Module for plotting discount curves and exporting curve data.
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
-import numpy as np
 from functools import reduce
+from itertools import combinations
 
 
 class CurvePlotter:
@@ -23,6 +23,7 @@ class CurvePlotter:
                 Each DataFrame should contain at least the columns 'Tenors' and 'Zero_CC'.
         """
         self.scenario_curves_dict = curves
+        self.curve_diff_dict = {}
 
     def align_dataframes(self, *dfs: pd.DataFrame) -> list:
         """
@@ -56,7 +57,8 @@ class CurvePlotter:
         """
         # Define curve pairs for comparison
         curve_pairs = [
-            ('Alternative Extrapolation with VA', 'Smith-Wilson Extrapolation with VA'),
+            ('Alternative Extrapolation with VA',
+             'Smith-Wilson Extrapolation with VA'),
             ('Alternative Extrapolation', 'Smith-Wilson Extrapolation')
         ]
 
@@ -69,13 +71,14 @@ class CurvePlotter:
                     curve2 = curves[curve2_name]
 
                     # Align the data based on common tenors
-                    curve1_aligned, curve2_aligned = self.align_dataframes(curve1, curve2)
+                    curve1_aligned, curve2_aligned = self.align_dataframes(
+                        curve1, curve2)
 
                     plt.figure(figsize=(10, 6))
                     plt.plot(curve1_aligned['Tenors'], curve1_aligned['Zero_CC'],
-                            label=f"{scenario_name} - {curve1_name}", linestyle='-')
+                             label=f"{scenario_name} - {curve1_name}", linestyle='-')
                     plt.plot(curve2_aligned['Tenors'], curve2_aligned['Zero_CC'],
-                            label=f"{scenario_name} - {curve2_name}", linestyle='--')
+                             label=f"{scenario_name} - {curve2_name}", linestyle='--')
 
                     plt.xlabel('Tenors', fontsize=12)
                     plt.ylabel('Zero Rates', fontsize=12)
@@ -85,7 +88,8 @@ class CurvePlotter:
                     # Save or display the plot
                     if output_path:
                         os.makedirs(output_path, exist_ok=True)
-                        filename = os.path.join(output_path, f"{scenario_name}_{curve1_name}_vs_{curve2_name}.png")
+                        filename = os.path.join(
+                            output_path, f"{scenario_name}_{curve1_name}_vs_{curve2_name}.png")
                         plt.savefig(filename, bbox_inches='tight')
                     else:
                         plt.show()
@@ -176,24 +180,59 @@ class CurvePlotter:
                 plt.show()
             plt.close()
 
-
-    def compute_curve_difference(self, curve1, curve2):
+    def compute_curve_differences(self):
         """
-        Compute the difference between two curves (assumes same tenors).
+        Computes curve differences for:
+        1. Same scenario, different extrapolation methods.
+        2. Same extrapolation method, different scenarios.
 
-        Args:
-            curve1 (DataFrame): First curve.
-            curve2 (DataFrame): Second curve.
-
-        Returns:
-            DataFrame: The difference between the two curves.
+        Stores results in `self.curve_diff_dict`.
         """
-        diff_df = pd.DataFrame(np.zeros([len(curve1),4]), columns=['Tenors', 'Zero_CC', 'Forward_CC', 'Discount'])
-        diff_df['Tenors'] = curve1['Tenors']
-        diff_df['Zero_CC'] = curve1['Zero_CC'] - curve2['Zero_CC']
-        diff_df['Forward_CC'] = curve1['Forward_CC'] - curve2['Forward_CC']
-        diff_df['Discount'] = curve1['Discount'] - curve2['Discount']
-        return diff_df
+        curve_diff_dict = {}
+
+        # Compute differences for same scenario (Alternative vs. Smith-Wilson)
+        for scenario_name, curves in self.scenario_curves_dict.items():
+            if 'Alternative Extrapolation with VA' in curves and 'Smith-Wilson Extrapolation with VA' in curves:
+                curve_diff_dict[f"{scenario_name}_Alternative_vs_Smith-Wilson_with_VA"] = self.compute_curve_difference(
+                    curves['Alternative Extrapolation with VA'],
+                    curves['Smith-Wilson Extrapolation with VA']
+                )
+
+            if 'Alternative Extrapolation' in curves and 'Smith-Wilson Extrapolation' in curves:
+                curve_diff_dict[f"{scenario_name}_Alternative_vs_Smith-Wilson"] = self.compute_curve_difference(
+                    curves['Alternative Extrapolation'],
+                    curves['Smith-Wilson Extrapolation']
+                )
+
+        # Compute differences for the same method across different scenarios
+        scenario_names = list(self.scenario_curves_dict.keys())
+        for scenario_1, scenario_2 in combinations(scenario_names, 2):
+            if 'Alternative Extrapolation with VA' in self.scenario_curves_dict[scenario_1] and 'Alternative Extrapolation with VA' in self.scenario_curves_dict[scenario_2]:
+                curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Alternative_with_VA"] = self.compute_curve_difference(
+                    self.scenario_curves_dict[scenario_1]['Alternative Extrapolation with VA'],
+                    self.scenario_curves_dict[scenario_2]['Alternative Extrapolation with VA']
+                )
+
+            if 'Smith-Wilson Extrapolation with VA' in self.scenario_curves_dict[scenario_1] and 'Smith-Wilson Extrapolation with VA' in self.scenario_curves_dict[scenario_2]:
+                curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Smith-Wilson_with_VA"] = self.compute_curve_difference(
+                    self.scenario_curves_dict[scenario_1]['Smith-Wilson Extrapolation with VA'],
+                    self.scenario_curves_dict[scenario_2]['Smith-Wilson Extrapolation with VA']
+                )
+
+            if 'Alternative Extrapolation' in self.scenario_curves_dict[scenario_1] and 'Alternative Extrapolation' in self.scenario_curves_dict[scenario_2]:
+                curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Alternative"] = self.compute_curve_difference(
+                    self.scenario_curves_dict[scenario_1]['Alternative Extrapolation'],
+                    self.scenario_curves_dict[scenario_2]['Alternative Extrapolation']
+                )
+
+            if 'Smith-Wilson Extrapolation' in self.scenario_curves_dict[scenario_1] and 'Smith-Wilson Extrapolation' in self.scenario_curves_dict[scenario_2]:
+                curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Smith-Wilson"] = self.compute_curve_difference(
+                    self.scenario_curves_dict[scenario_1]['Smith-Wilson Extrapolation'],
+                    self.scenario_curves_dict[scenario_2]['Smith-Wilson Extrapolation']
+                )
+
+        # Assign computed differences to the class variable
+        self.curve_diff_dict = curve_diff_dict
 
     def export_curve_data(self, output_path: str = None) -> None:
         """
@@ -216,25 +255,56 @@ class CurvePlotter:
                 else:
                     print(f"No output path given.\n\nPrint: {df}")
 
-
-    def export_curve_diff_data(self, curve_diff_dict: dict, output_path: str=None):
+    def export_curve_differences_data(self, output_path: str):
         """
-        Export all curve data to CSV files.
-
-        Each scenario is saved as a separate CSV file with filenames in the format:
-        "{curve1}_vs_{curve2}.csv".
+        Exports computed curve differences as CSV files.
 
         Args:
-            output_path (str, optional): Directory to save the CSV files.
+            output_path (str): Directory where CSV files will be saved.
         """
-        if output_path:
-            os.makedirs(output_path, exist_ok=True)
-        for diffs, df_curve_diffs in curve_diff_dict.items():
-            filename = f"{diffs}.csv".replace(" ", "_")
-            if output_path:
-                file_path = os.path.join(output_path, filename)
-                df_curve_diffs.to_csv(file_path, index=False)
-            else:
-                print(f"No output path given.\n\nPrint: {df_curve_diffs}")
+        diff_data_path = os.path.join(output_path, "data/diffs/")
+        os.makedirs(diff_data_path, exist_ok=True)
 
+        for diff_name, diff_df in self.curve_diff_dict.items():
+            diff_df.to_csv(os.path.join(
+                diff_data_path, f"{diff_name}.csv"), index=False)
 
+    def plot_curve_differences(self, output_path: str):
+        """
+        Plots computed curve differences.
+
+        Args:
+            output_path (str): Directory where the plots will be saved.
+        """
+        diff_plot_path = os.path.join(output_path, "plots/diffs/")
+        os.makedirs(diff_plot_path, exist_ok=True)
+
+        for diff_name, curve_diffs in self.curve_diff_dict.items():
+            plt.figure(figsize=(10, 6))
+            plt.plot(curve_diffs['Tenors'], curve_diffs['Zero_CC'],
+                     label=diff_name, linestyle='-')
+            plt.xlabel('Tenors', fontsize=12)
+            plt.ylabel('Zero Rate Differences', fontsize=12)
+            plt.legend(fontsize=10)
+            plt.grid(True)
+
+            filename = os.path.join(diff_plot_path, f"{diff_name}.png")
+            plt.savefig(filename, bbox_inches='tight')
+            plt.close()
+
+    def compute_curve_difference(self, curve1, curve2):
+        """
+        Compute the difference between two curves (assumes same tenors).
+
+        Args:
+            curve1 (DataFrame): First curve.
+            curve2 (DataFrame): Second curve.
+
+        Returns:
+            DataFrame: The difference between the two curves.
+        """
+        diff_df = curve1.copy()
+        diff_df['Zero_CC'] = curve1['Zero_CC'] - curve2['Zero_CC']
+        diff_df['Forward_CC'] = curve1['Forward_CC'] - curve2['Forward_CC']
+        diff_df['Discount'] = curve1['Discount'] - curve2['Discount']
+        return diff_df

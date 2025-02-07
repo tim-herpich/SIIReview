@@ -13,7 +13,6 @@ from va import VaSpreadCalculator
 from impact import ImpactCalculator
 from plots.curveplotter import CurvePlotter
 from plots.impactplotter import ImpactPlotter
-from itertools import combinations
 
 
 def main():
@@ -257,56 +256,11 @@ def main():
     curve_plotter.plot_curves_cs_combined(
         output_path='outputs/curves/plots/cs_combined/')
     curve_plotter.export_curve_data(output_path='outputs/curves/data/')
-    curve_plotter.plot_curves(scenario_curves_dict, output_path='outputs/curves/plots/')
-
-    # Export and plot curve data differences
-    curve_diff_dict = {}  # Store differences
-
-    # Differences for a given scenario
-    for scenario_name, curves in scenario_curves_dict.items():
-        # Compute difference for same scenario, different extrapolation methods
-        diff_alt_vs_sw_with_va = curve_plotter.compute_curve_difference(
-            curves['Alternative Extrapolation with VA'],
-            curves['Smith-Wilson Extrapolation with VA']
-        )
-        curve_diff_dict[f"{scenario_name}_Alternative_Extrapolation_vs_Smith-Wilson_Extrapolation_with_VA"] = diff_alt_vs_sw_with_va
-        diff_alt_vs_sw = curve_plotter.compute_curve_difference(
-            curves['Alternative Extrapolation'],
-            curves['Smith-Wilson Extrapolation']
-        )
-        curve_diff_dict[f"{scenario_name}_Alternative_Extrapolation_vs_Smith-Wilson_Extrapolation"] = diff_alt_vs_sw
-
-    # Differences for a given method
-    scenario_names = list(scenario_curves_dict.keys())
-    # Generates unique pairs
-    for scenario_1, scenario_2 in combinations(scenario_names, 2):
-        diff_alt_with_va = curve_plotter.compute_curve_difference(
-            scenario_curves_dict[scenario_1]['Alternative Extrapolation with VA'],
-            scenario_curves_dict[scenario_2]['Alternative Extrapolation with VA']
-        )
-        diff_sw_with_va = curve_plotter.compute_curve_difference(
-            scenario_curves_dict[scenario_1]['Smith-Wilson Extrapolation with VA'],
-            scenario_curves_dict[scenario_2]['Smith-Wilson Extrapolation with VA']
-        )
-        diff_alt = curve_plotter.compute_curve_difference(
-            scenario_curves_dict[scenario_1]['Alternative Extrapolation'],
-            scenario_curves_dict[scenario_2]['Alternative Extrapolation']
-        )
-        diff_sw = curve_plotter.compute_curve_difference(
-            scenario_curves_dict[scenario_1]['Smith-Wilson Extrapolation'],
-            scenario_curves_dict[scenario_2]['Smith-Wilson Extrapolation']
-        )
-
-        # Store the computed differences
-        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Alternative_Extrapolation_with_VA"] = diff_alt_with_va
-        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Smith-Wilson_Extrapolation_with_VA"] = diff_sw_with_va
-        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Alternative_Extrapolation"] = diff_alt
-        curve_diff_dict[f"{scenario_1}_vs_{scenario_2}_Smith-Wilson_Extrapolation"] = diff_sw
-
-    curve_plotter.export_curve_diff_data(
-        curve_diff_dict=curve_diff_dict, output_path='outputs/curves/data/diffs')
-    curve_plotter.plot_curve_diffs(curve_diff_dict=curve_diff_dict, output_path='outputs/curves/plots/diffs/')
-
+    curve_plotter.plot_curves(scenario_curves_dict,
+                              output_path='outputs/curves/plots/')
+    curve_plotter.compute_curve_differences()
+    curve_plotter.export_curve_differences_data(output_path='outputs/curves/')
+    curve_plotter.plot_curve_differences(output_path='outputs/curves/')
 
     # Plot and export impact data
     results_impacts_df = pd.DataFrame(results_impact_density)
