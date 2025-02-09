@@ -67,7 +67,7 @@ class ImpactPlotter:
                 mpatches.Patch(color='#2ca02c', label='PV Delta (Positive)'),
                 mpatches.Patch(color='#d62728', label='PV Delta (Negative)')
             ]
-            plt.legend(handles=legend_handles)
+            plt.legend(handles=legend_handles, fontsize=10)
 
             plt.ylim(-0.1, 1.0)  # Expand slightly below min for readability
             plt.xlabel('Maturity (Years)', fontsize=12)

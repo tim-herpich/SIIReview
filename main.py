@@ -184,7 +184,6 @@ def main():
             'Smith-Wilson Extrapolation': results_sw[:-1]
         }
 
-
     # Impact analysis: Compute the PV of a unit ZCB for the different discount curves with VA
         impact_results = {
             "Maturity": [],
@@ -195,7 +194,8 @@ def main():
         for maturity in range(cp.LLP_SW, cp.CP_SW+1, 5):
             pv_alt = impact_calc.compute_zcb_pv(
                 results_alt_with_new_VA, maturity, cp.LLP_SW)
-            pv_sw = impact_calc.compute_zcb_pv(results_sw_withVA, maturity, cp.LLP_SW)
+            pv_sw = impact_calc.compute_zcb_pv(
+                results_sw_withVA, maturity, cp.LLP_SW)
             impact_results["Maturity"].append(maturity)
             impact_results["PV Alternative Extrapolation"].append(pv_alt)
             impact_results["PV Smith-Wilson Extrapolation"].append(pv_sw)
@@ -206,14 +206,15 @@ def main():
     # Export and plot combined curve data
     print(f"Plot and export curves...")
     curve_plotter = CurvePlotter(curves=scenario_curves_dict)
-    curve_plotter.plot_curves_cs_combined(
-        output_path='outputs/curves/plots/cs_combined/')
+    curve_plotter.plot_curves_cs_combined(llp=cp.LLP_SW,
+                                          output_path='outputs/curves/plots/cs_combined/')
     curve_plotter.export_curve_data(output_path='outputs/curves/data/')
-    curve_plotter.plot_curves(scenario_curves_dict,
-                              output_path='outputs/curves/plots/')
+    curve_plotter.plot_curves(
+        llp=cp.LLP_SW, output_path='outputs/curves/plots/')
     curve_plotter.compute_curve_differences()
     curve_plotter.export_curve_differences_data(output_path='outputs/curves/')
-    curve_plotter.plot_curve_differences(output_path='outputs/curves/')
+    curve_plotter.plot_curve_differences(
+        llp=cp.LLP_SW, output_path='outputs/curves/')
 
     # Plot and export impact data
     print(f"Plot and export impacts...")

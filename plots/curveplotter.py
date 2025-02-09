@@ -47,7 +47,7 @@ class CurvePlotter:
             df.merge(common_tenors, on='Tenors', how='inner') for df in dfs]
         return aligned_dfs
 
-    def plot_curves(self, scenario_curves_dict: dict, output_path: str = None) -> None:
+    def plot_curves(self, llp:int, output_path: str = None) -> None:
         """
         Plot specified pairs of curves for comparison across all scenarios.
 
@@ -63,7 +63,7 @@ class CurvePlotter:
         ]
 
         # Iterate over scenarios
-        for scenario_name, curves in scenario_curves_dict.items():
+        for scenario_name, curves in self.scenario_curves_dict.items():
             for curve1_name, curve2_name in curve_pairs:
                 # Ensure both curves exist in the dictionary before proceeding
                 if curve1_name in curves and curve2_name in curves:
@@ -80,6 +80,9 @@ class CurvePlotter:
                     plt.plot(curve2_aligned['Tenors'], curve2_aligned['Zero_CC'],
                              label=f"{scenario_name} - {curve2_name}", linestyle='--')
 
+                    plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1)
+                    ymin, ymax = plt.ylim()
+                    plt.text(llp, (0.95*ymax), "FSP/LLP", color='black', fontsize=10, ha='right', va='center')
                     plt.xlabel('Tenors', fontsize=12)
                     plt.ylabel('Zero Rates', fontsize=12)
                     plt.legend(fontsize=10)
@@ -95,7 +98,7 @@ class CurvePlotter:
                         plt.show()
                     plt.close()
 
-    def plot_curves_cs_combined(self, output_path: str = None) -> None:
+    def plot_curves_cs_combined(self, llp:int, output_path: str = None) -> None:
         """
         Plot all credit spread scenarios (i.e. curves with 'VA' in the name) for each interest rate level in one figure.
 
@@ -140,33 +143,9 @@ class CurvePlotter:
                 plt.plot(curve_data['Tenors'], curve_data['Zero_CC'],
                          label=label, linestyle=curve_line_style)
 
-            plt.xlabel('Tenors', fontsize=12)
-            plt.ylabel('Zero Rates', fontsize=12)
-            plt.legend(fontsize=8)
-            plt.grid(True)
-
-            if output_path:
-                os.makedirs(output_path, exist_ok=True)
-                filename = os.path.join(
-                    output_path, f"{interest_level}_with_VA.png")
-                plt.savefig(filename, bbox_inches="tight")
-            else:
-                plt.show()
-            plt.close()
-
-    def plot_curve_diffs(self, curve_diff_dict: dict, output_path: str = None) -> None:
-        """
-        Plot all curves in dict.
-
-        Args:
-            curve_diff_dict (dict of dfs): Each df contains differences between two curves interest rates.
-            output_path (str, optional): Directory to save the plots. If not provided, plots are displayed.
-        """
-        for diff, curve_diffs in curve_diff_dict.items():
-
-            plt.figure(figsize=(10, 6))
-            plt.plot(curve_diffs['Tenors'], curve_diffs['Zero_CC'],
-                     label=diff, linestyle='-')
+            plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1)
+            ymin, ymax = plt.ylim()
+            plt.text(llp, (0.95*ymax), "FSP/LLP", color='black', fontsize=10, ha='right', va='center')
             plt.xlabel('Tenors', fontsize=12)
             plt.ylabel('Zero Rates', fontsize=12)
             plt.legend(fontsize=10)
@@ -174,8 +153,9 @@ class CurvePlotter:
 
             if output_path:
                 os.makedirs(output_path, exist_ok=True)
-                filename = os.path.join(output_path, f"_{diff}.png")
-                plt.savefig(filename, bbox_inches='tight')
+                filename = os.path.join(
+                    output_path, f"{interest_level}_with_VA.png")
+                plt.savefig(filename, bbox_inches="tight")
             else:
                 plt.show()
             plt.close()
@@ -269,7 +249,7 @@ class CurvePlotter:
             diff_df.to_csv(os.path.join(
                 diff_data_path, f"{diff_name}.csv"), index=False)
 
-    def plot_curve_differences(self, output_path: str):
+    def plot_curve_differences(self, llp:int, output_path: str):
         """
         Plots computed curve differences.
 
@@ -287,6 +267,9 @@ class CurvePlotter:
             plt.ylabel('Zero Rate Differences', fontsize=12)
             plt.legend(fontsize=10)
             plt.grid(True)
+            plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1)
+            ymin, ymax = plt.ylim()
+            plt.text(llp, (0.95*ymax), "FSP/LLP", color='black', fontsize=10, ha='right', va='center')
 
             filename = os.path.join(diff_plot_path, f"{diff_name}.png")
             plt.savefig(filename, bbox_inches='tight')
