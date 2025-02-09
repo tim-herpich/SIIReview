@@ -33,7 +33,7 @@ class ImpactCalculator:
         discount_rate = interp_func(maturity)
         return float(discount_rate)
 
-    def compute_zcb_pv(self, discount_curve: pd.DataFrame, maturity: float) -> float:
+    def compute_zcb_pv(self, discount_curve: pd.DataFrame, maturity: float, llp: float) -> float:
         """
         Compute the present value of a unit face value zero-coupon bond with the given maturity,
         using the zero rate obtained from the discount curve.
@@ -46,5 +46,5 @@ class ImpactCalculator:
             float: Present value of the ZCB.
         """
         zero_rate = self._interpolate_rate(discount_curve, maturity)
-        pv = np.exp(-zero_rate * maturity)
+        pv = np.exp(-zero_rate * (maturity-llp))
         return pv

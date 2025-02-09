@@ -62,8 +62,8 @@ class ImpactPlotter:
 
             # Create a custom legend for PV Delta
             legend_handles = [
-                mpatches.Patch(label='PV Alternative Curve'),
-                mpatches.Patch(label='PV Smith-Wilson Curve'),
+                mpatches.Patch(color='#1f77b4', label='PV Alternative Curve'),
+                mpatches.Patch(color='#ff7f0e',label='PV Smith-Wilson Curve'),
                 mpatches.Patch(color='#2ca02c', label='PV Delta (Positive)'),
                 mpatches.Patch(color='#d62728', label='PV Delta (Negative)')
             ]
