@@ -1,6 +1,6 @@
 # Interest Rate Curve Extrapolation & Impact Analysis
 
-This project generates and compares interest rate curves using the current **Solvency II (SII)** and the proposed **future Solvency II Review** methodologies. Explicitly, it implements both the **Smith-Wilson** and **Dutch (Alternative) extrapolation methods**. The **volatility adjustment (VA)** is treated as an input for Smith-Wilson, it computed dynamically for the Dutch method based on the proposed SII Review framework. Additionally, the project assesses the **impact on own funds** resulting from different interest rate curve extrapolation methodologies.
+This project generates and compares interest rate curves using the current **Solvency II (SII)** and the proposed **future Solvency II Review** methodologies. Explicitly, it implements both the **Smith-Wilson** and **Dutch (Alternative) extrapolation methods**. The **volatility adjustment (VA)** is treated as an input for Smith-Wilson, it computed dynamically for the Dutch method based on the proposed SII Review framework. Additionally, the project assesses the **impact on liabilities / technical provisions** resulting from different interest rate curve extrapolation methodologies.
 
 ---
 
@@ -13,11 +13,10 @@ This project generates and compares interest rate curves using the current **Sol
   - **Alternative Extrapolation** using the Dutch (Alternative) approach.
   - **Smith–Wilson Extrapolation** using the Smith-Wilson approach.
 - **VA Spread Calculation**: Computes the Volatility Adjustment (VA) as per the SII Review.
-- **Impact Analysis**: Assesses own funds impact under different extrapolation methodologies.
+- **Impact Analysis**: Assesses liabilities / technical provisions impact under different extrapolation methodologies.
 - **Plotting and Visualization**: Generates plots for:
-  - **Extrapolated Yield Curves**
-  - **Impact Assessments** (CSV data exports available)
-
+  - **Extrapolated Yield Curves**: Comparison between extrapolation methods under different market scenarios.
+  - **Impact Assessments** Impact assessments due to different extrapolation methods under different market scenarios.
 ---
 
 ## 📁 Project Structure
@@ -54,7 +53,7 @@ SII REVIEW TOOL/
 ├── .gitignore                         # Ignore file for Git
 ├── .gitlab-ci.yml                      # GitLab CI/CD pipeline configuration
 ├── bootstrapping.py                   # Bootstrapping methodology implementation
-├── impact.py                          # Own funds impact assessment module
+├── impact.py                          # Liabilities / technical provisions impact assessment module
 ├── main.py                            # Main execution script
 ├── marketdata.py                      # Market data loader module
 ├── parameters.py                      # Configuration and parameters module

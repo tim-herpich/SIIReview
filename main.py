@@ -42,7 +42,7 @@ def main():
 
     # Dictionary to store scenario curves and list for impact results
     scenario_curves_dict = {}
-    results_impact_density = []
+    scenario_impact_dict = {}
 
     # Iterate over market scenarios
     for scenario in cp.scenarios:
@@ -184,72 +184,23 @@ def main():
             'Smith-Wilson Extrapolation': results_sw[:-1]
         }
 
-        # Impact assessment over a range of liability sizes and durations
-        for liability_size in np.arange(cp.liability_size_low_bound,
-                                        cp.liability_size_high_bound,
-                                        cp.liability_size_steps):
-            for liability_duration in np.arange(cp.liability_duration_low_bound,
-                                                cp.liability_duration_high_bound,
-                                                cp.liability_duration_steps):
-
-                va_calc_dynamic = VaSpreadCalculator(
-                    va_spreads_df=va_spreads_shifted,
-                    fi_asset_size=cp.fi_asset_size,
-                    liability_size=liability_size,
-                    pvbp_fi_assets=cp.pvbp_fi_assets,
-                    pvbp_liabs=cp.pvbp_liabs
-                )
-                va_new_dynamic = va_calc_dynamic.compute_total_va()
-
-                zero_boot_with_new_VA_dynamic = ext_alt.zero_boot_withVA(
-                    fwd_boot_withVA=boot_df['Forward_CC'].copy().values,
-                    max_tenor=cp.max_tenorofAlt,
-                    FSP=cp.FSP,
-                    VA_value=va_new_dynamic
-                )
-
-                llfr_with_new_VA_dynamic = ext_alt.get_llfr(
-                    zero_rates=zero_boot_with_new_VA_dynamic,
-                    dlt=dlt_array,
-                    weights=weight_array
-                )
-
-                results_alt_with_new_VA_dynamic = ext_alt.alternative_extrapolation(
-                    zero_rates=zero_boot_with_new_VA_dynamic,
-                    FSP=cp.FSP,
-                    UFR=cp.UFR,
-                    LLFR=llfr_with_new_VA_dynamic,
-                    alpha=cp.alpha
-                )
-
-                impacts_calc_df = impact_calc.assess_impact(
-                    asset_size=cp.asset_size,
-                    asset_duration=cp.asset_duration,
-                    liability_size=liability_size,
-                    liability_duration=liability_duration,
-                    zero_curve_SWWithVA=results_sw_withVA[[
-                        'Tenors', 'Zero_CC']],
-                    zero_curve_AltWithVA=results_alt_with_new_VA_dynamic[[
-                        'Tenors', 'Zero_CC']],
-                    zero_curve_assets=boot_df[['Tenors', 'Zero_CC']]
-                )
-                results_impact_density.append({
-                    'Scenario': scenario["name"],
-                    'Assets': cp.asset_size,
-                    'Asset Duration': cp.asset_duration,
-                    'Zero Rate Assets SW': impacts_calc_df['Zero Rate Assets SW'][0],
-                    'Zero Rate Assets Alternative': impacts_calc_df['Zero Rate Assets Alternative'][0],
-                    'Assets Reevaluated': impacts_calc_df['Assets Reevaluated'][0],
-                    'Liabilities': liability_size,
-                    'Liability Duration': liability_duration,
-                    'Zero Rate Liabilities SW': impacts_calc_df['Zero Rate Liabilities SW'][0],
-                    'Zero Rate Liabilities Alternative': impacts_calc_df['Zero Rate Liabilities Alternative'][0],
-                    'Liabilities Reevaluated': impacts_calc_df['Liabilities Reevaluated'][0],
-                    'Own Funds': impacts_calc_df['Own Funds'][0],
-                    'Own Funds Reevaluated': impacts_calc_df['Own Funds Reevaluated'][0],
-                    'Own Funds Impact': impacts_calc_df['Own Funds Impact'][0],
-                    'Own Funds Impact rel.': impacts_calc_df['Own Funds Impact rel.'][0]
-                })
+    # Impact analysis: Compute the PV of a unit ZCB for the different discount curves with VA
+        impact_results = {
+            "Maturity": [],
+            "PV Alternative Extrapolation": [],
+            "PV Smith-Wilson Extrapolation": [],
+            "Delta PV": []
+        }
+        for maturity in range(cp.LLP_SW//2, cp.CP_SW+1, 5):
+            pv_alt = impact_calc.compute_zcb_pv(
+                results_alt_with_new_VA, maturity)
+            pv_sw = impact_calc.compute_zcb_pv(results_sw_withVA, maturity)
+            impact_results["Maturity"].append(maturity)
+            impact_results["PV Alternative Extrapolation"].append(pv_alt)
+            impact_results["PV Smith-Wilson Extrapolation"].append(pv_sw)
+            impact_results["Delta PV"].append(pv_alt - pv_sw)
+        impact_df = pd.DataFrame(impact_results)
+        scenario_impact_dict[scenario["name"]] = impact_df
 
     # Export and plot combined curve data
     curve_plotter = CurvePlotter(curves=scenario_curves_dict)
@@ -263,17 +214,9 @@ def main():
     curve_plotter.plot_curve_differences(output_path='outputs/curves/')
 
     # Plot and export impact data
-    results_impacts_df = pd.DataFrame(results_impact_density)
-    impact_plotter = ImpactPlotter(results_impact_df=results_impacts_df,
-                                   asset_size=cp.asset_size,
-                                   asset_duration=cp.asset_duration)
-    impact_plotter.plot_liability_size_vs_impact_overlay(
-        output_path='outputs/impacts/plots/')
-    for scenario in cp.scenarios:
-        impact_plotter.create_impact_density_plot(scenario=scenario["name"],
-                                                  output_path='outputs/impacts/plots/')
-        impact_plotter.export_impact_data(scenario=scenario["name"],
-                                          output_path='outputs/impacts/data/')
+    impact_plotter = ImpactPlotter(impact_data=scenario_impact_dict)
+    impact_plotter.plot_impact_barchart(output_path='outputs/impacts/plots/')
+    impact_plotter.export_impact_data(output_path='outputs/impacts/data/')
 
 
 if __name__ == "__main__":
