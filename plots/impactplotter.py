@@ -34,7 +34,7 @@ class ImpactPlotter:
         Three bars are plotted per maturity:
         - PV Alternative Extrapolation
         - PV Smith-Wilson Extrapolation
-        - PV Delta (difference between the two), colored green if positive, red if negative.
+        - PV (Alt - SW) (difference between the two), colored green if positive, red if negative.
 
         Args:
             output_path (str, optional): Directory to save the plots. If not provided, the plots are displayed.
@@ -43,7 +43,7 @@ class ImpactPlotter:
             maturities = scenario_df['Maturity'].values
             pv_alt = scenario_df['PV Alternative Extrapolation'].values
             pv_sw = scenario_df['PV Smith-Wilson Extrapolation'].values
-            pv_delta = scenario_df['Delta PV'].values
+            pv_delta = scenario_df['PV (Alt - SW)'].values
             x = np.arange(len(maturities))
             width = 0.3  # Adjusted width to fit all 3 bars
 
@@ -54,24 +54,24 @@ class ImpactPlotter:
                     label='PV Alternative Curve')
             plt.bar(x, pv_sw, width, label='PV Smith-Wilson Curve')
 
-            # Conditional colors for PV Delta: Green if positive, Red if negative
+            # Conditional colors for PV (Alt - SW): Green if positive, Red if negative
             delta_colors = ['#2ca02c' if delta >
                             0 else '#d62728' for delta in pv_delta]
             plt.bar(x + width, pv_delta, width,
-                    label='PV Delta (Alt - SW)', color=delta_colors)
+                    label='PV (Alt - SW)', color=delta_colors)
 
             # Create a custom legend for PV Delta
             legend_handles = [
                 mpatches.Patch(color='#1f77b4', label='PV Alternative Curve'),
                 mpatches.Patch(color='#ff7f0e',label='PV Smith-Wilson Curve'),
-                mpatches.Patch(color='#2ca02c', label='PV Delta (Positive)'),
-                mpatches.Patch(color='#d62728', label='PV Delta (Negative)')
+                mpatches.Patch(color='#2ca02c', label='PV (Alt - SW) (Positive)'),
+                mpatches.Patch(color='#d62728', label='PV (Alt - SW) (Negative)')
             ]
             plt.legend(handles=legend_handles, fontsize=10)
 
             plt.ylim(-0.1, 1.0)  # Expand slightly below min for readability
             plt.xlabel('Maturity (Years)', fontsize=12)
-            plt.ylabel('Present Value of Unit CF', fontsize=12)
+            plt.ylabel('PV at LLP of unit CF', fontsize=12)
             plt.xticks(x, maturities)
             plt.grid(axis='y', linestyle='--', alpha=0.7)
 

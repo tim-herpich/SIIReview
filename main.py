@@ -93,8 +93,7 @@ def main():
             coupon_freq=cp.coupon_freq,
             compounding_in=cp.compounding_in,
             cra=cp.CRA,
-            max_tenor=cp.max_tenorofAlt,
-            compounding_out=cp.compounding_out
+            max_tenor=cp.max_tenorofAlt
         )
 
         # Compute LLFR without VA
@@ -189,7 +188,7 @@ def main():
             "Maturity": [],
             "PV Alternative Extrapolation": [],
             "PV Smith-Wilson Extrapolation": [],
-            "Delta PV": []
+            "PV (Alt - SW)": []
         }
         for maturity in range(cp.LLP_SW, cp.CP_SW+1, 5):
             pv_alt = impact_calc.compute_zcb_pv(
@@ -199,7 +198,7 @@ def main():
             impact_results["Maturity"].append(maturity)
             impact_results["PV Alternative Extrapolation"].append(pv_alt)
             impact_results["PV Smith-Wilson Extrapolation"].append(pv_sw)
-            impact_results["Delta PV"].append(pv_alt - pv_sw)
+            impact_results["PV (Alt - SW)"].append(pv_alt - pv_sw)
         impact_df = pd.DataFrame(impact_results)
         scenario_impact_dict[scenario["name"]] = impact_df
 

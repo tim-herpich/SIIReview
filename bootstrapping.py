@@ -4,7 +4,7 @@ Module for bootstrapping zero rate curves.
 
 import numpy as np
 import pandas as pd
-from math import log, exp, isnan
+from math import isnan
 
 
 class Bootstrapping:
@@ -37,11 +37,12 @@ class Bootstrapping:
             if abs(fx) < tol:
                 break
             temp2 = temp / (1 + fw)
-            dfx = swap_rate * ((1 + (m + 1) * fw) * temp2 - 1) / (fw ** 2) - m * temp2
+            dfx = swap_rate * ((1 + (m + 1) * fw) * temp2 -
+                               1) / (fw ** 2) - m * temp2
             fw -= fx / dfx
         return fw
 
-    def bootstrap_to_zero_full(self, instrument, rates, dlt, coupon_freq, compounding_in, cra, max_tenor, compounding_out):
+    def bootstrap_to_zero_full(self, instrument, rates, dlt, coupon_freq, compounding_in, cra, max_tenor):
         """
         Bootstrap the full zero rate curve.
 
@@ -53,7 +54,6 @@ class Bootstrapping:
             compounding_in (str): Input compounding.
             cra (float): Credit risk adjustment (in basis points).
             max_tenor (int): Maximum tenor.
-            compounding_out (str): Output compounding.
 
         Returns:
             pd.DataFrame: DataFrame containing the zero curve, forward curve, and discount factors.
@@ -64,8 +64,7 @@ class Bootstrapping:
                 dlt=dlt,
                 coupon_freq=coupon_freq,
                 cra=cra,
-                max_tenor=max_tenor,
-                compounding_out=compounding_out
+                max_tenor=max_tenor
             )
         elif instrument == 'Zero':
             return self.bootstrap_zero_to_zero_full(
@@ -73,15 +72,14 @@ class Bootstrapping:
                 dlt=dlt,
                 compounding_in=compounding_in,
                 cra=cra,
-                max_tenor=max_tenor,
-                compounding_out=compounding_out
+                max_tenor=max_tenor
             )
         else:
             raise Exception(f'Instrument {instrument} is not defined.')
 
-    def bootstrap_swap_to_zero_full(self, swap_rates, dlt, coupon_freq, cra, max_tenor, compounding_out):
+    def bootstrap_swap_to_zero_full(self, swap_rates, dlt, coupon_freq, cra, max_tenor):
         """
-        Bootstrap the zero curve from swap rates.
+        Bootstrap the zero curve from swap rates and return rates in both annual and continuous compounding.
 
         Args:
             swap_rates (array-like): Swap rates (in percentage).
@@ -89,14 +87,13 @@ class Bootstrapping:
             coupon_freq (float): Coupon frequency.
             cra (float): Credit risk adjustment in basis points.
             max_tenor (int): Maximum tenor.
-            compounding_out (str): Output compounding.
 
         Returns:
-            pd.DataFrame: DataFrame with zero, forward, and discount curves.
+            pd.DataFrame: DataFrame with zero, forward, and discount curves in both annual and continuous compounding.
         """
-        forward = np.zeros(max_tenor)
+        forward_ac = np.zeros(max_tenor)
         discount = np.ones(max_tenor)
-        zero = np.zeros(max_tenor)
+        zero_ac = np.zeros(max_tenor)
 
         valid_tenors = []
         valid_swaps = []
@@ -107,13 +104,14 @@ class Bootstrapping:
                 valid_swaps.append(val_dec)
 
         if len(valid_tenors) == 0:
-            results_dict = {
+            return pd.DataFrame({
                 'Tenors': np.arange(max_tenor, dtype=int),
-                'Zero_CC': zero,
-                'Forward_CC': forward,
+                'Zero_AC': zero_ac,
+                'Forward_AC': forward_ac,
+                'Zero_CC': zero_ac,
+                'Forward_CC': forward_ac,
                 'Discount': discount
-            }
-            return pd.DataFrame(data=results_dict)
+            })
 
         first_idx = valid_tenors[0]
         first_tenor = first_idx + 1
@@ -128,18 +126,20 @@ class Bootstrapping:
 
         for i in range(first_idx + 1):
             year = i + 1
-            forward[i] = (1 + fwtemp) ** coupon_freq - 1
-            discount[i] = 1 / (1 + forward[i]) if i == 0 else discount[i - 1] / (1 + forward[i])
-            zero[i] = (1.0 / discount[i]) ** (1.0 / year) - 1
+            forward_ac[i] = (1 + fwtemp) ** coupon_freq - 1
+            discount[i] = 1 / (1 + forward_ac[i]
+                               ) if i == 0 else discount[i - 1] / (1 + forward_ac[i])
+            zero_ac[i] = (1.0 / discount[i]) ** (1.0 / year) - 1
 
-        sumdiscount = (1 - (1 + fwtemp) ** (-coupon_freq * first_tenor)) / fwtemp
+        sumdiscount = (1 - (1 + fwtemp) **
+                       (-coupon_freq * first_tenor)) / fwtemp
         last_idx = first_idx
 
         for idx in range(1, len(valid_tenors)):
             curr_idx = valid_tenors[idx]
             curr_tenor = curr_idx + 1
             swap_val = valid_swaps[idx] / coupon_freq
-            guess_fw = forward[last_idx] / coupon_freq
+            guess_fw = forward_ac[last_idx] / coupon_freq
             m2 = (curr_tenor - (last_idx + 1)) * coupon_freq
 
             fwtemp = self.newton_raphson_forward_swap(
@@ -153,37 +153,36 @@ class Bootstrapping:
 
             for i in range(last_idx + 1, curr_idx + 1):
                 year = i + 1
-                forward[i] = (1 + fwtemp) ** coupon_freq - 1
-                discount[i] = discount[i - 1] / (1 + forward[i])
-                zero[i] = (1.0 / discount[i]) ** (1.0 / year) - 1
+                forward_ac[i] = (1 + fwtemp) ** coupon_freq - 1
+                discount[i] = discount[i - 1] / (1 + forward_ac[i])
+                zero_ac[i] = (1.0 / discount[i]) ** (1.0 / year) - 1
 
             last_idx = curr_idx
 
         if last_idx < (max_tenor - 1):
             for i in range(last_idx + 1, max_tenor):
                 year = i + 1
-                forward[i] = forward[last_idx]
-                discount[i] = discount[i - 1] / (1 + forward[i])
-                zero[i] = (1.0 / discount[i]) ** (1.0 / year) - 1
+                forward_ac[i] = forward_ac[last_idx]
+                discount[i] = discount[i - 1] / (1 + forward_ac[i])
+                zero_ac[i] = (1.0 / discount[i]) ** (1.0 / year) - 1
 
-        if compounding_out == 'C':
-            for i in range(max_tenor):
-                fval = forward[i]
-                zval = zero[i]
-                forward[i] = log(1 + fval) if fval > -1 else 0.0
-                zero[i] = log(1 + zval) if zval > -1 else 0.0
+        # Convert to continuous compounding if needed
+        zero_cc = np.log(1 + zero_ac)
+        forward_cc = np.log(1 + forward_ac)
 
         results_dict = {
             'Tenors': np.arange(max_tenor, dtype=int),
-            'Zero_CC': zero,
-            'Forward_CC': forward,
+            'Zero_AC': zero_ac,
+            'Forward_AC': forward_ac,
+            'Zero_CC': zero_cc,
+            'Forward_CC': forward_cc,
             'Discount': discount
         }
         return pd.DataFrame(data=results_dict)
 
-    def bootstrap_zero_to_zero_full(self, zero_rates_init, dlt, compounding_in, cra, max_tenor, compounding_out):
+    def bootstrap_zero_to_zero_full(self, zero_rates_init, dlt, compounding_in, cra, max_tenor):
         """
-        Bootstrap the zero curve from initial zero rates.
+        Bootstrap the zero curve from initial zero rates and return rates in both annual and continuous compounding.
 
         Args:
             zero_rates_init (array-like): Initial zero rates.
@@ -191,14 +190,13 @@ class Bootstrapping:
             compounding_in (str): Input compounding.
             cra (float): Credit risk adjustment in basis points.
             max_tenor (int): Maximum tenor.
-            compounding_out (str): Output compounding.
 
         Returns:
-            pd.DataFrame: DataFrame with zero, forward, and discount curves.
+            pd.DataFrame: DataFrame with zero, forward, and discount curves in both annual and continuous compounding.
         """
-        forward = np.zeros(max_tenor)
+        forward_cc = np.zeros(max_tenor)
         discount = np.ones(max_tenor)
-        zero = np.zeros(max_tenor)
+        zero_cc = np.zeros(max_tenor)
 
         valid_tenors = []
         valid_vals = []
@@ -206,26 +204,27 @@ class Bootstrapping:
             if dlt[i] == 1 and not isnan(zero_rates_init[i]):
                 dec = zero_rates_init[i] / 100.0 - cra / 10000.0
                 if compounding_in == 'A':
-                    dec = log(1 + dec)
+                    dec = np.log(1 + dec)  # Convert to continuous compounding
                 valid_tenors.append(i)
                 valid_vals.append(dec)
 
         if len(valid_tenors) == 0:
-            results_dict = {
+            return pd.DataFrame({
                 'Tenors': np.arange(max_tenor, dtype=int),
-                'Zero_CC': zero,
-                'Forward_CC': forward,
+                'Zero_AC': zero_cc,
+                'Forward_AC': forward_cc,
+                'Zero_CC': zero_cc,
+                'Forward_CC': forward_cc,
                 'Discount': discount
-            }
-            return pd.DataFrame(data=results_dict)
+            })
 
         first_idx = valid_tenors[0]
         first_val = valid_vals[0]
         for i in range(first_idx + 1):
             year = i + 1
-            forward[i] = first_val
-            zero[i] = forward[i]
-            discount[i] = exp(-year * zero[i])
+            forward_cc[i] = first_val
+            zero_cc[i] = forward_cc[i]
+            discount[i] = np.exp(-year * zero_cc[i])
 
         for idx in range(1, len(valid_tenors)):
             left_i = valid_tenors[idx - 1]
@@ -239,29 +238,20 @@ class Bootstrapping:
 
             for i in range(left_i + 1, right_i + 1):
                 year = i + 1
-                forward[i] = fwtemp
-                discount[i] = discount[i - 1] * exp(-fwtemp)
-                zero[i] = -log(discount[i]) / year
+                forward_cc[i] = fwtemp
+                discount[i] = discount[i - 1] * np.exp(-fwtemp)
+                zero_cc[i] = -np.log(discount[i]) / year
 
-        last_idx = valid_tenors[-1]
-        if last_idx < (max_tenor - 1):
-            for i in range(last_idx + 1, max_tenor):
-                year = i + 1
-                forward[i] = forward[last_idx]
-                discount[i] = discount[i - 1] * exp(-forward[i])
-                zero[i] = -log(discount[i]) / year
-
-        if compounding_out == 'A':
-            for i in range(max_tenor):
-                fval = forward[i]
-                zval = zero[i]
-                forward[i] = exp(fval) - 1
-                zero[i] = exp(zval) - 1
+        # Convert to annual compounding
+        zero_ac = np.exp(zero_cc) - 1
+        forward_ac = np.exp(forward_cc) - 1
 
         results_dict = {
             'Tenors': np.arange(max_tenor, dtype=int),
-            'Zero_CC': zero,
-            'Forward_CC': forward,
+            'Zero_AC': zero_ac,
+            'Forward_AC': forward_ac,
+            'Zero_CC': zero_cc,
+            'Forward_CC': forward_cc,
             'Discount': discount
         }
         return pd.DataFrame(data=results_dict)
