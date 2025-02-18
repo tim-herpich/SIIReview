@@ -88,20 +88,3 @@ def test_scenarios_content(params):
     ]
     assert params.scenarios == expected
 
-def test_liability_size_low_bound(params):
-    assert params.liability_size_low_bound == 0.5 * params.asset_size
-
-def test_liability_size_high_bound(params):
-    assert params.liability_size_high_bound == 1.0 * params.asset_size
-
-def test_liability_duration_low_bound(params):
-    assert params.liability_duration_low_bound == 1.0 * params.asset_duration
-
-def test_liability_duration_high_bound(params):
-    assert params.liability_duration_high_bound == 1.5 * params.asset_duration
-
-def test_liability_size_steps(params):
-    assert params.liability_size_steps == params.asset_size / 20.0
-
-def test_liability_duration_steps(params):
-    assert params.liability_duration_steps == params.asset_duration / 20.0

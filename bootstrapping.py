@@ -247,7 +247,7 @@ class Bootstrapping:
         forward_ac = np.exp(forward_cc) - 1
 
         results_dict = {
-            'Tenors': np.arange(max_tenor, dtype=int),
+            'Tenors': np.arange(1, max_tenor+1, dtype=int),
             'Zero_AC': zero_ac,
             'Forward_AC': forward_ac,
             'Zero_CC': zero_cc,

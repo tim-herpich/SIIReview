@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 import pytest
-from extrapolation.smithwilson import ExtrapolationSW
+from extrapolation.smithwilson_excel import ExtrapolationSWExcel
 
 @pytest.fixture
 def extrap_sw():
-    return ExtrapolationSW()
+    return ExtrapolationSWExcel()
 
 def test_hh(extrap_sw):
     """

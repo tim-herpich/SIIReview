@@ -17,7 +17,7 @@ class Parameters:
 
         # Parameters for alternative extrapolation
         self.FSP = 20
-        self.alpha = 0.10
+        self.alpha = 0.11 # seems to be currently assumed value
 
         # Parameters for SW and alternative calculations
         self.UFR = 0.033
@@ -50,11 +50,3 @@ class Parameters:
             {'name': 'high_interest_base_spreads', 'irshift': 200, 'csshift': 0, 'vaspread': 27},
             {'name': 'high_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 45}
         ]
-
-        # Portfolio impact scenarios for sensitivity analysis
-        self.liability_size_low_bound = 0.5 * self.asset_size
-        self.liability_size_high_bound = 1.0 * self.asset_size
-        self.liability_duration_low_bound = 1.0 * self.asset_duration
-        self.liability_duration_high_bound = 1.5 * self.asset_duration
-        self.liability_size_steps = self.asset_size / 20.0
-        self.liability_duration_steps = self.asset_duration / 20.0

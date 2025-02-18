@@ -1,263 +1,242 @@
-"""
-Module for Smith-Wilson extrapolation of zero rate curves.
-"""
-
+import math
 import numpy as np
 import pandas as pd
+from scipy import optimize
 
 
 class ExtrapolationSW:
     """
-    Class implementing the Smith-Wilson extrapolation method.
+    Class implementing the Smith–Wilson extrapolation method.
+    This refactored version calibrates using only liquid market data,
+    then preserves the observed (liquid) part of the curve and only extrapolates
+    for tenors beyond the last liquid point.
     """
 
     def __init__(self):
         pass
 
-    def hh(self, z):
+    def _w(self, t1: float, t2: float, alpha: float, omega: float) -> float:
         """
-        Helper function for Hmat calculation.
-
+        Smith–Wilson kernel function.
+        
         Args:
-            z (float): Input value.
-
-        Returns:
-            float: Computed hh value.
-        """
-        return (z + np.exp(-z)) / 2
-
-    def Hmat(self, u, v):
-        """
-        Compute the H matrix element.
-
-        Args:
-            u (float): First parameter.
-            v (float): Second parameter.
-
-        Returns:
-            float: H matrix element.
-        """
-        return self.hh(u + v) - self.hh(abs(u - v))
-
-    def galpha(self, alpha, Q, mm, umax, nrofcoup, CP, convergence_radius):
-        """
-        Compute the galpha function and gamma vector.
-
-        Args:
+            t1 (float): First tenor (in years).
+            t2 (float): Second tenor (in years).
             alpha (float): Convergence parameter.
-            Q (np.ndarray): Q matrix.
-            mm (int): Number of liquid rates.
-            umax (float): Maximum tenor.
-            nrofcoup (int): Number of coupon payments.
-            CP (float): Convergence point.
-            convergence_radius (float): Convergence radius.
+            omega (float): ln(1 + UFR).
+            
+        Returns:
+            float: The kernel value.
+        """
+        a_min = alpha * min(t1, t2)
+        a_max = alpha * max(t1, t2)
+        return np.exp(-omega * (t1 + t2)) * (a_min - np.exp(-a_max) * 0.5 * (np.exp(a_min) - np.exp(-a_min)))
+
+
+    def _w_vector(self, t: float, t_obs: np.ndarray, alpha: float, omega: float) -> np.ndarray:
+        """
+        Compute the vector of kernel values between tenor t and each calibration tenor.
+        
+        Args:
+            t (float): The tenor at which to evaluate.
+            t_obs (np.ndarray): Array of calibration tenors.
+            alpha (float): Convergence parameter.
+            omega (float): ln(1 + UFR).
+            
+        Returns:
+            np.ndarray: Vector with entries w(t, t_obs[i]).
+        """
+        return np.array([self._w(t, ti, alpha, omega) for ti in t_obs])
+
+
+    def _convergence_criterion(
+        self, alpha: float, t_obs: np.ndarray, D_obs: np.ndarray, omega: float, CP: float, CR: float
+    ) -> float:
+        """
+        Compute the convergence criterion for a given alpha.
+
+        Args:
+            alpha (float): The candidate convergence parameter.
+            t_obs (np.ndarray): Calibration tenors.
+            D_obs (np.ndarray): Observed discount factors at t_obs.
+            omega (float): ln(1 + UFR).
+            CP (float): Convergence point (in years).
+            CR (float): Convergence radius.
 
         Returns:
-            tuple: (output1, gamma) where output1 is used for alpha adjustment and gamma is the gamma vector.
+            float: The gap value (should be zero when convergence is achieved).
         """
-        Q_cols = Q.shape[1]
-        h = np.zeros((int(umax * nrofcoup), int(umax * nrofcoup)))
-        for i in range(1, int(umax * nrofcoup) + 1):
-            for j in range(1, int(umax * nrofcoup) + 1):
-                h[i - 1, j - 1] = self.Hmat(alpha * i / nrofcoup, alpha * j / nrofcoup)
-
-        temp1 = 1 - np.sum(Q, axis=1).reshape((mm, 1))
-        QH = np.matmul(Q, h)
-        QHQT = np.matmul(QH, Q.T)
+        n = len(t_obs)
+        W = np.empty((n, n))
+        for i in range(n):
+            for j in range(n):
+                W[i, j] = self._w(t_obs[i], t_obs[j], alpha, omega)
         try:
-            QHQT_inv = np.linalg.inv(QHQT)
+            W_inv = np.linalg.inv(W)
         except np.linalg.LinAlgError:
-            raise ValueError("QHQT matrix is singular and cannot be inverted.")
+            raise ValueError(f"Calibration matrix is singular for alpha={alpha}")
+        diff = D_obs - np.exp(-omega * t_obs)
+        weight_vec = W_inv.dot(diff)
+        Qb = np.exp(-omega * t_obs) * weight_vec
+        Qb_dot_reft = np.dot(alpha * t_obs, Qb)
+        QB_dot_sinh = np.dot(np.sinh(alpha * t_obs), Qb)
+        kappa = (1 + Qb_dot_reft) / QB_dot_sinh if QB_dot_sinh != 0 else np.inf
+        gap = alpha / abs(1 - np.exp(alpha * CP) * kappa)
+        return gap - CR
 
-        b = np.matmul(QHQT_inv, temp1)
-        gamma = np.matmul(Q.T, b)
-        indices = np.arange(1, Q_cols + 1)
-        temp2 = np.sum(gamma.flatten() * indices / nrofcoup)
-        temp3 = np.sum(gamma.flatten() * np.sinh(alpha * indices / nrofcoup))
-        kappa = (1 + alpha * temp2) / temp3
 
-        denominator = abs(1 - kappa * np.exp(CP * alpha))
-        if denominator == 0:
-            raise ValueError("Denominator in alpha calculation is zero.")
-        output1 = alpha / denominator - convergence_radius
-        output2 = gamma.flatten()
-
-        return output1, output2
-
-    def alpha_scan(self, lastalpha, stepsize, Q, mm, umax, nrofcoup, CP, convergence_radius):
+    def _find_alpha(
+        self, t_obs: np.ndarray, D_obs: np.ndarray, omega: float, CP: float, CR: float, alpha_min: float
+    ) -> float:
         """
-        Scan for the optimal alpha.
-
+        Determine the optimal alpha using a root finding procedure on the convergence criterion.
+        
         Args:
-            lastalpha (float): Last alpha value.
-            stepsize (float): Step size.
-            Q (np.ndarray): Q matrix.
-            mm (int): Number of rates.
-            umax (float): Maximum tenor.
-            nrofcoup (int): Number of coupon payments.
-            CP (float): Convergence point.
-            convergence_radius (float): Convergence radius.
+            t_obs (np.ndarray): Calibration tenors.
+            D_obs (np.ndarray): Observed discount factors at t_obs.
+            omega (float): ln(1 + UFR).
+            CP (float): Convergence point (in years).
+            CR (float): Convergence radius.
+            initial_guess (float): Starting value for alpha.
 
         Returns:
-            tuple: (alpha, gamma)
+            float: The calibrated alpha.
         """
-        step = stepsize / 10.0
-        start_alpha = lastalpha - 0.9 * stepsize
-        end_alpha = lastalpha
-        alphas = np.arange(start_alpha, end_alpha + step, step)
-        for alpha in alphas:
-            output1, gamma = self.galpha(alpha, Q, mm, umax, nrofcoup, CP, convergence_radius)
-            if output1 <= 0:
-                return alpha, gamma
-        return end_alpha, gamma
+        alpha_ini = 0.1
+        try:
+            sol = optimize.root_scalar(
+                lambda alpha: self._convergence_criterion(alpha, t_obs, D_obs, omega, CP, CR),
+                x0=alpha_ini, bracket=[alpha_min, 0.5]
+            )
+            if sol.converged:
+                return sol.root
+            else:
+                print(f'No root could be found in the range [{alpha_min},1]. Setting alpha = {alpha_min}.')
+                return alpha_min
+        except Exception as e:
+            print(e.args)
 
-    def smith_wilson_extrapolation(self, instrument, curve_data, coupon_freq, CRA, UFR, alpha_min, CR, CP):
+
+    def smith_wilson_extrapolation(
+        self,
+        curve_data: pd.DataFrame,
+        UFR: float,
+        alpha_min: float,
+        CR: float,
+        CP: float,
+    ) -> pd.DataFrame:
         """
-        Perform Smith-Wilson extrapolation.
+        Perform Smith–Wilson extrapolation.
 
         Args:
-            instrument (str): Instrument type.
-            curve_data (pd.DataFrame): Input curve data.
-            coupon_freq (float): Coupon frequency.
-            CRA (float): Credit risk adjustment.
+            curve_data (pd.DataFrame): Bootstrapped curve data with columns
+                'DLT', 'Tenor', 'Discount', 'Zero_CC'.
             UFR (float): Ultimate forward rate.
-            alpha_min (float): Minimum alpha.
-            CR (float): Convergence radius (in basis points).
-            CP (float): Convergence point.
-
+            alpha_min (float): Minimum (or starting) alpha value.
+            CR (float): Convergence radius in basis points.
+            CP (float): Convergence point in years.
+        
         Returns:
-            pd.DataFrame: DataFrame containing extrapolated curves.
+            pd.DataFrame: DataFrame containing the extrapolated curve with columns:
+                'Tenors', 'Zero_CC', 'Forward_CC', 'Discount', 'Zero_AC', 'Forward_AC'.
         """
-        data = curve_data
-        data_liquid = data[data['DLT'] == 1]
-        nrofrates = len(data_liquid)
-        u = data_liquid['Tenor'].values
-        r = data_liquid['Input Rates'].values - CRA / 10000.0
-        umax = np.max(u)
 
-        if instrument == "Zero":
-            coupon_freq = 1
-        Q_cols = int(umax * coupon_freq)
-        Q = np.zeros((nrofrates, Q_cols))
-        lnUFR = np.log(1 + UFR)
+        # Select liquid market data (where DLT == 1).
+        liquid_data = curve_data[curve_data['DLT'] == 1]
+        if liquid_data.empty:
+            raise ValueError("No liquid data available for calibration.")
 
-        if instrument == "Zero":
-            for i in range(nrofrates):
-                maturity = int(u[i])
-                if maturity < 1 or maturity > Q_cols:
-                    raise ValueError(f"Maturity {maturity} out of Q matrix bounds.")
-                Q[i, maturity - 1] = np.exp(-lnUFR * u[i]) * ((1 + r[i]) ** u[i])
-        elif instrument in ["Swap", "Bond"]:
-            for i in range(nrofrates):
-                maturity = int(u[i] * coupon_freq)
-                for j in range(1, maturity):
-                    Q[i, j - 1] = np.exp(-lnUFR * j / coupon_freq) * r[i] / coupon_freq
-                if maturity <= Q_cols:
-                    Q[i, maturity - 1] = np.exp(-lnUFR * maturity / coupon_freq) * (1 + r[i] / coupon_freq)
-                else:
-                    raise ValueError(f"Maturity {maturity} out of Q matrix bounds.")
-        else:
-            raise ValueError("Instrument must be 'Zero', 'Bond', or 'Swap'.")
+        # Extract calibration tenors and observed rates.
+        # Assumes 'Tenor' is in years.
+        t_obs = liquid_data['Tenors'].values.astype(float)
+        r_obs = liquid_data['Zero_CC'].values.astype(float)
+        D_obs = liquid_data['Discount'].values.astype(float)
 
-        CR = CR / 10000.0
-        output1, gamma = self.galpha(alpha_min, Q, nrofrates, umax, coupon_freq, CP, CR)
+        # Define omega = ln(1 + UFR)
+        omega = math.log(1 + UFR)
 
-        if output1 <= 0:
-            alpha = alpha_min
-        else:
-            stepsize = 0.1
-            found = False
-            for alpha in np.arange(alpha_min + stepsize, 20 + stepsize, stepsize):
-                output1, gamma = self.galpha(alpha, Q, nrofrates, umax, coupon_freq, CP, CR)
-                if output1 <= 0:
-                    found = True
-                    break
-            if not found:
-                raise ValueError("Optimal alpha not found within range.")
-            precision = 6
-            for _ in range(precision - 1):
-                alpha, gamma = self.alpha_scan(alpha, stepsize, Q, nrofrates, umax, coupon_freq, CP, CR)
-                stepsize /= 10.0
+        # Determine optimal alpha (using the quick method).
+        alpha = self._find_alpha(t_obs, D_obs, omega, CP, CR, alpha_min)
 
-        max_v = 121
-        h_matrix = np.zeros((max_v + 1, Q_cols))
-        g_matrix = np.zeros((max_v + 1, Q_cols))
-        for i in range(0, max_v + 1):
-            for j in range(1, Q_cols + 1):
-                h_matrix[i, j - 1] = self.Hmat(alpha * i, alpha * j / coupon_freq)
-                if (j / coupon_freq) > i:
-                    g_matrix[i, j - 1] = alpha * (1 - np.exp(-alpha * j / coupon_freq) * np.cosh(alpha * i))
-                else:
-                    g_matrix[i, j - 1] = alpha * np.exp(-alpha * i) * np.sinh(alpha * j / coupon_freq)
+        # Calibration: build the Smith–Wilson matrix for calibration points.
+        n = len(t_obs)
+        W = np.empty((n, n))
+        for i in range(n):
+            for j in range(n):
+                W[i, j] = self._w(t_obs[i], t_obs[j], alpha, omega)
+        try:
+            W_inv = np.linalg.inv(W)
+        except np.linalg.LinAlgError:
+            raise ValueError("Calibration matrix is singular; cannot invert.")
 
-        temptempdiscount = np.matmul(h_matrix, gamma).flatten()
-        temptempintensity = np.matmul(g_matrix, gamma).flatten()
-        tempdiscount = temptempdiscount.copy()
-        tempintensity = temptempintensity.copy()
-        indices = np.arange(1, Q_cols + 1)
-        temp = np.sum((1 - np.exp(-alpha * indices / coupon_freq)) * gamma)
-        zerocc = np.zeros(max_v + 1)
-        fwintensity = np.zeros(max_v + 1)
-        discountcc = np.zeros(max_v + 1)
-        zeroac = np.zeros(max_v + 1)
-        forwardac = np.zeros(max_v + 1)
-        forwardcc = np.zeros(max_v + 1)
+        diff = D_obs - np.exp(-omega * t_obs)
+        weight_vec = W_inv.dot(diff)
 
-        zerocc[0] = lnUFR - alpha * temp
-        fwintensity[0] = zerocc[0]
-        discountcc[0] = 1
+        # Define tenor grid.
+        tenors = np.arange(0, len(tenors) + 1, dtype=float)
 
-        if Q_cols >= 1:
-            zerocc[1] = lnUFR - np.log(1 + tempdiscount[1])
-            fwintensity[1] = lnUFR - tempintensity[1] / (1 + tempdiscount[1])
-            discountcc[1] = np.exp(-lnUFR) * (1 + tempdiscount[1])
-            zeroac[1] = (1 / discountcc[1]) ** 1 - 1 if discountcc[1] != 0 else 0
-            forwardac[1] = zeroac[1]
-        else:
-            raise ValueError("Q_cols must be at least 1.")
+        # For the liquid part (t <= max(t_obs)), use the observed rates via interpolation.
+        interp_func = lambda t: np.interp(t, t_obs, r_obs)
 
-        for i in range(2, max_v):
-            zerocc[i] = lnUFR - np.log(1 + tempdiscount[i]) / i
-            fwintensity[i] = lnUFR - tempintensity[i] / (1 + tempdiscount[i])
-            discountcc[i] = np.exp(-lnUFR * i) * (1 + tempdiscount[i])
-            zeroac[i] = (1 / discountcc[i]) ** (1 / i) - 1 if discountcc[i] != 0 else 0
-            forwardac[i] = discountcc[i - 1] / discountcc[i] - 1 if (discountcc[i - 1] != 0 and discountcc[i] != 0) else 0
+        Zero_CC = np.zeros_like(tenors)
+        Discount = np.zeros_like(tenors)
+        Forward_CC = np.zeros_like(tenors)
 
-        zerocc[max_v] = 0
-        fwintensity[max_v] = 0
-        zeroac[max_v] = 0
-        forwardac[max_v] = 0
-        discountcc[max_v] = alpha
+        for idx, t in enumerate(tenors):
+            if t == 0:
+                # At t = 0 define discount factor 1 and use UFR as the instantaneous rate.
+                Discount[idx] = 1.0
+                Zero_CC[idx] = UFR
+            elif t <= t_obs.max():
+                # For the liquid segment, preserve observed rates.
+                Zero_CC[idx] = interp_func(t)
+                Discount[idx] = np.exp(-Zero_CC[idx] * t)
+            else:
+                # For t beyond the liquid segment, compute using the SW formula.
+                w_vec = self._w_vector(t, t_obs, alpha, omega)
+                D_t = np.exp(-omega * t) + np.dot(weight_vec, w_vec)
+                Discount[idx] = D_t
+                Zero_CC[idx] = -np.log(D_t) / t
 
-        zerocc_arr = np.zeros(max_v + 1)
-        for i in range(1, max_v):
-            forwardcc[i] = np.log(1 + forwardac[i])
-            zerocc_arr[i] = np.log(1 + zeroac[i])
+        # Compute forward rates from discount factors.
+        Forward_CC[0] = Zero_CC[0]
+        for idx in range(1, len(tenors)):
+            if Discount[idx] > 0 and Discount[idx - 1] > 0:
+                Forward_CC[idx] = np.log(Discount[idx - 1] / Discount[idx])
+            else:
+                Forward_CC[idx] = 0.0
+
+        # For this version, set the "accumulated" (AC) values equal to the continuous compounding (CC) ones.
+        Zero_AC = np.exp(Zero_CC) - 1
+        Forward_AC = np.exp(Forward_CC) - 1
 
         output_dict = {
-            'Tenors': np.arange(max_v + 1, dtype=int),
-            'Zero_CC': zerocc,
-            'Forward_CC': forwardcc,
-            'Discount': discountcc,
-            'Zero_AC': zeroac,
-            'Forward_AC': forwardac,
+            'Tenors': tenors.astype(int),
+            'Zero_CC': Zero_CC,
+            'Forward_CC': Forward_CC,
+            'Discount': Discount,
+            'Zero_AC': Zero_AC,
+            'Forward_AC': Forward_AC,
         }
         return pd.DataFrame(data=output_dict)
 
-    def getInputwithVA(self, zero_rates_extrapolated_ac, LLP, VA_value, curve_data):
+    def getInputwithVA(self, zero_rates_extrapolated_ac, LLP, VA_value, curve_data: pd.DataFrame) -> pd.DataFrame:
         """
         Incorporate VA into the extrapolated zero curve.
-
+        
+        For tenors up to LLP, adjust the zero rates by a parallel shift equal to the VA spread.
+        
         Args:
-            zero_rates_extrapolated_ac (array-like): Extrapolated zero rates.
-            LLP (int): Last Liquid Point.
+            zero_rates_extrapolated_ac (array-like): Extrapolated (accumulated) zero rates.
+            LLP (int): Last liquid point.
             VA_value (float): VA spread in basis points.
             curve_data (pd.DataFrame): Original curve data (used for column names).
-
+            
         Returns:
             pd.DataFrame: DataFrame with VA-adjusted zero curve.
         """
         dlt = np.ones(LLP, dtype=int)
         tenors = np.arange(1, LLP + 1, dtype=int)
-        zero_rate_withVA = zero_rates_extrapolated_ac[1:LLP + 1] + VA_value / 10000
+        # Add VA spread (converted from basis points) to the extrapolated zeros over the liquid segment.
+        zero_rate_withVA = zero_rates_extrapolated_ac[1:LLP + 1] + VA_value / 10000.0
         return pd.DataFrame(data=list(zip(dlt, tenors, zero_rate_withVA)), columns=curve_data.columns)

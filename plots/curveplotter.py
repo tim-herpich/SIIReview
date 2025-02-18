@@ -145,8 +145,8 @@ class CurvePlotter:
 
             plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1)
             ymin, ymax = plt.ylim()
-            plt.text(llp, (0.95*ymax), "FSP/LLP", color='black', fontsize=10, ha='right', va='center')
-            plt.xlabel('Tenors', fontsize=12)
+            plt.text(llp, (0.95*ymax), "LLP", color='black', fontsize=10, ha='right', va='center')
+            plt.xlabel('Tenor (Years)', fontsize=12)
             plt.ylabel('Zero Rates', fontsize=12)
             plt.legend(fontsize=10)
             plt.grid(True)
