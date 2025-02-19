@@ -66,24 +66,6 @@ SII REVIEW TOOL/
 
 ---
 
-## 📌 Usage
-
-### **Running the Full Workflow**
-To execute the full process (loading market data, extrapolation, and impact assessment), run:
-
-```bash
-python main.py
-```
-
-### **Running Tests**
-To validate the implementation, execute:
-
-```bash
-pytest tests/
-```
-
----
-
 ## 📊 Output and Visualization
 
 ### **1. Interest Rate Curve Generation**
@@ -96,27 +78,3 @@ The underlying data is saved in the `outputs/impacts/data` directory.
 
 
 ---
-
-## 🏗️ Contributions
-
-Contributions to this project are highly encouraged! Follow these steps to contribute:
-
-1. **Fork** this repository.
-2. Create a **new branch** for your feature or fix.
-3. **Commit** your changes with a descriptive message.
-4. **Push** to your branch.
-5. Open a **Pull Request** for review.
-
-
----
-
-## 📞 Contact
-
-For questions, suggestions, or issues, please feel free to reach out via:
-
-- **Email**: [tim.herpich@d-fine.com](tim.herpich@d-fine.com)
-
----
-
-**Developed for the Makret and Non-Financial Risk Cluster**
-
