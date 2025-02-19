@@ -52,11 +52,16 @@ class ExtrapolationAlt:
             discount[i] = math.exp(-year * zerocc[i])
             forwardcc[i] = math.log(discount[i - 1] / discount[i]) if i > 0 else zerocc[i]
 
+        zeroac = np.exp(zerocc) - 1
+        forwardac = np.exp(forwardcc) - 1
+
         output_dict = {
-            'Tenors': np.arange(max_range, dtype=int),
+            'Tenors': np.arange(1, max_range + 1, dtype=int),
             'Zero_CC': zerocc,
             'Forward_CC': forwardcc,
-            'Discount': discount
+            'Discount': discount,
+            'Zero_AC': zeroac,
+            'Forward_AC': forwardac,
         }
         return pd.DataFrame(data=output_dict)
 

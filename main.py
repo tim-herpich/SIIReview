@@ -147,68 +147,71 @@ def main():
             alpha=cp.alpha
         )
 
-        # Smith-Wilson extrapolation (according to Excel) without VA
-        results_sw_excel = ext_sw_excel.smith_wilson_extrapolation(
-            instrument=cp.instrument,
-            curve_data=df_sw_shifted,
-            coupon_freq=cp.coupon_freq,
-            CRA=cp.CRA,
-            UFR=cp.UFR,
-            alpha_min=cp.alpha_min_SW,
-            CR=cp.CR_SW,
-            CP=cp.CP_SW
-        )
-
-        # Smith-Wilson extrapolation (according to Excel) with VA
-        df_sw_withVA_excel = ext_sw_excel.getInputwithVA(
-            zero_rates_extrapolated_ac=results_sw_excel['Zero_AC'].copy(),
-            LLP=cp.LLP_SW,
-            VA_value=cp.VA_value,
-            curve_data=df_sw_shifted
-        )
-        results_sw_withVA_excel = ext_sw_excel.smith_wilson_extrapolation(
-            instrument='Zero',
-            curve_data=df_sw_withVA_excel,
-            coupon_freq=cp.coupon_freq,
-            CRA=0.0,
-            UFR=cp.UFR,
-            alpha_min=cp.alpha_min_SW,
-            CR=cp.CR_SW,
-            CP=cp.CP_SW
-        )
-
-        # # Smith-Wilson extrapolation without VA
-        # sw_rates_df = boot_df.copy()
-        # sw_rates_df['DLT'] = df_sw_shifted['DLT']
-        # results_sw = ext_sw.smith_wilson_extrapolation(
-        #     curve_data=sw_rates_df,
+        # # Smith-Wilson extrapolation (according to Excel) without VA
+        # results_sw_excel = ext_sw_excel.smith_wilson_extrapolation(
+        #     instrument=cp.instrument,
+        #     curve_data=df_sw_shifted,
+        #     coupon_freq=cp.coupon_freq,
+        #     CRA=cp.CRA,
         #     UFR=cp.UFR,
         #     alpha_min=cp.alpha_min_SW,
         #     CR=cp.CR_SW,
         #     CP=cp.CP_SW
         # )
 
-        # # Smith-Wilson extrapolation with VA
-        # df_sw_withVA = ext_sw.getInputwithVA(
-        #     zero_rates_extrapolated_ac=results_sw['Zero_AC'].copy(),
+        # # Smith-Wilson extrapolation (according to Excel) with VA
+        # df_sw_withVA_excel = ext_sw_excel.getInputwithVA(
+        #     zero_rates_extrapolated_ac=results_sw_excel['Zero_AC'].copy(),
         #     LLP=cp.LLP_SW,
         #     VA_value=cp.VA_value,
         #     curve_data=df_sw_shifted
         # )
-        # results_sw_withVA = ext_sw_excel.smith_wilson_extrapolation(
-        #     curve_data=df_sw_withVA,
+        # results_sw_withVA_excel = ext_sw_excel.smith_wilson_extrapolation(
+        #     instrument='Zero',
+        #     curve_data=df_sw_withVA_excel,
+        #     coupon_freq=cp.coupon_freq,
+        #     CRA=0.0,
         #     UFR=cp.UFR,
         #     alpha_min=cp.alpha_min_SW,
         #     CR=cp.CR_SW,
         #     CP=cp.CP_SW
         # )
+
+        ############################################################################## New Implementation #####################
+        # Smith-Wilson extrapolation without VA
+        sw_rates_df = boot_df.copy()
+        sw_rates_df['DLT'] = df_sw_shifted['DLT']
+        results_sw = ext_sw.smith_wilson_extrapolation(
+            curve_data=sw_rates_df,
+            UFR=cp.UFR,
+            alpha_min=cp.alpha_min_SW,
+            CR=cp.CR_SW,
+            CP=cp.CP_SW
+        )
+
+        # Smith-Wilson extrapolation with VA
+        df_sw_withVA = ext_sw.addVA(
+            results_sw=results_sw,
+            LLP=cp.LLP_SW,
+            VA_value=cp.VA_value,
+            curve_data=df_sw_shifted
+        )
+        results_sw_withVA = ext_sw.smith_wilson_extrapolation(
+            curve_data=df_sw_withVA,
+            UFR=cp.UFR,
+            alpha_min=cp.alpha_min_SW,
+            CR=cp.CR_SW,
+            CP=cp.CP_SW
+        )
+        ############################################################################## New Implementation #####################
+
 
         # Store the scenario curves in a dictionary
         scenario_curves_dict[scenario["name"]] = {
             'Alternative Extrapolation with VA': results_alt_with_new_VA,
             'Alternative Extrapolation': results_alt,
-            'Smith-Wilson Extrapolation with VA': results_sw_withVA_excel[:-1],
-            'Smith-Wilson Extrapolation': results_sw_excel[:-1]
+            'Smith-Wilson Extrapolation with VA': results_sw_withVA[:-1],
+            'Smith-Wilson Extrapolation': results_sw[:-1]
         }
 
     # Impact analysis: Compute the PV of a unit ZCB for the different discount curves with VA
@@ -224,7 +227,7 @@ def main():
             pv_alt = impact_calc.compute_zcb_pv(
                 results_alt_with_new_VA, maturity, pv_tenor)
             pv_sw = impact_calc.compute_zcb_pv(
-                results_sw_withVA_excel, maturity, pv_tenor)
+                results_sw_withVA, maturity, pv_tenor)
             impact_results["Maturity"].append(maturity)
             impact_results["PV Alternative Extrapolation"].append(pv_alt)
             impact_results["PV Smith-Wilson Extrapolation"].append(pv_sw)

@@ -13,7 +13,7 @@ class ExtrapolationSW:
     """
 
     def __init__(self):
-        pass
+        self.alpha = float
 
     def _w(self, t1: float, t2: float, alpha: float, omega: float) -> float:
         """
@@ -74,7 +74,7 @@ class ExtrapolationSW:
         try:
             W_inv = np.linalg.inv(W)
         except np.linalg.LinAlgError:
-            raise ValueError(f"Calibration matrix is singular for alpha={alpha}")
+            raise ValueError("W matrix is singular and cannot be inverted.")
         diff = D_obs - np.exp(-omega * t_obs)
         weight_vec = W_inv.dot(diff)
         Qb = np.exp(-omega * t_obs) * weight_vec
@@ -82,8 +82,7 @@ class ExtrapolationSW:
         QB_dot_sinh = np.dot(np.sinh(alpha * t_obs), Qb)
         kappa = (1 + Qb_dot_reft) / QB_dot_sinh if QB_dot_sinh != 0 else np.inf
         gap = alpha / abs(1 - np.exp(alpha * CP) * kappa)
-        return gap - CR
-
+        return gap / (CR * 1e-4) - 1
 
     def _find_alpha(
         self, t_obs: np.ndarray, D_obs: np.ndarray, omega: float, CP: float, CR: float, alpha_min: float
@@ -102,19 +101,21 @@ class ExtrapolationSW:
         Returns:
             float: The calibrated alpha.
         """
+
         alpha_ini = 0.1
         try:
             sol = optimize.root_scalar(
                 lambda alpha: self._convergence_criterion(alpha, t_obs, D_obs, omega, CP, CR),
-                x0=alpha_ini, bracket=[alpha_min, 0.5]
+                x0=alpha_ini, bracket=[alpha_min, 1]
             )
             if sol.converged:
+                print(f'A root could be found. alpha = {sol.root}.')
                 return sol.root
             else:
-                print(f'No root could be found in the range [{alpha_min},1]. Setting alpha = {alpha_min}.')
+                print(f'No root could be found in the range [{alpha_min}, 1]. Setting alpha = {alpha_min}.')
                 return alpha_min
         except Exception as e:
-            print(e.args)
+            raise ValueError(e.args)
 
 
     def smith_wilson_extrapolation(
@@ -148,8 +149,9 @@ class ExtrapolationSW:
 
         # Extract calibration tenors and observed rates.
         # Assumes 'Tenor' is in years.
-        t_obs = liquid_data['Tenors'].values.astype(float)
+        t_obs = liquid_data['Tenors'].values.astype(int)
         r_obs = liquid_data['Zero_CC'].values.astype(float)
+        f_obs = liquid_data['Forward_CC'].values.astype(float)
         D_obs = liquid_data['Discount'].values.astype(float)
 
         # Define omega = ln(1 + UFR)
@@ -173,61 +175,55 @@ class ExtrapolationSW:
         weight_vec = W_inv.dot(diff)
 
         # Define tenor grid.
-        tenors = np.arange(0, len(tenors) + 1, dtype=float)
+        tenors = len(curve_data['DLT'])
+        zerocc = np.zeros(tenors)
+        discount = np.zeros(tenors)
+        forwardcc = np.zeros(tenors)
 
-        # For the liquid part (t <= max(t_obs)), use the observed rates via interpolation.
-        interp_func = lambda t: np.interp(t, t_obs, r_obs)
-
-        Zero_CC = np.zeros_like(tenors)
-        Discount = np.zeros_like(tenors)
-        Forward_CC = np.zeros_like(tenors)
-
-        for idx, t in enumerate(tenors):
-            if t == 0:
-                # At t = 0 define discount factor 1 and use UFR as the instantaneous rate.
-                Discount[idx] = 1.0
-                Zero_CC[idx] = UFR
-            elif t <= t_obs.max():
+        for t in range(tenors):
+            year = t + 1
+            if t < t_obs[-1]:
                 # For the liquid segment, preserve observed rates.
-                Zero_CC[idx] = interp_func(t)
-                Discount[idx] = np.exp(-Zero_CC[idx] * t)
+                zerocc[t] = r_obs[t]
+                discount[t] = D_obs[t]
+                forwardcc[t] = f_obs[t]
             else:
                 # For t beyond the liquid segment, compute using the SW formula.
-                w_vec = self._w_vector(t, t_obs, alpha, omega)
-                D_t = np.exp(-omega * t) + np.dot(weight_vec, w_vec)
-                Discount[idx] = D_t
-                Zero_CC[idx] = -np.log(D_t) / t
+                w_vec = self._w_vector(year, t_obs, alpha, omega)
+                D_t = np.exp(-omega * year) + np.dot(weight_vec, w_vec)
+                discount[t] = D_t
+                zerocc[t] = -np.log(D_t) / year
 
         # Compute forward rates from discount factors.
-        Forward_CC[0] = Zero_CC[0]
-        for idx in range(1, len(tenors)):
-            if Discount[idx] > 0 and Discount[idx - 1] > 0:
-                Forward_CC[idx] = np.log(Discount[idx - 1] / Discount[idx])
+        forwardcc[0] = zerocc[0]
+        for idx in range(1, tenors):
+            if discount[idx] > 0 and discount[idx - 1] > 0:
+                forwardcc[idx] = np.log(discount[idx - 1] / discount[idx])
             else:
-                Forward_CC[idx] = 0.0
+                forwardcc[idx] = 0.0
 
-        # For this version, set the "accumulated" (AC) values equal to the continuous compounding (CC) ones.
-        Zero_AC = np.exp(Zero_CC) - 1
-        Forward_AC = np.exp(Forward_CC) - 1
+        zeroac = np.exp(zerocc) - 1
+        forwardac = np.exp(forwardcc) - 1
 
         output_dict = {
-            'Tenors': tenors.astype(int),
-            'Zero_CC': Zero_CC,
-            'Forward_CC': Forward_CC,
-            'Discount': Discount,
-            'Zero_AC': Zero_AC,
-            'Forward_AC': Forward_AC,
+            'Tenors': np.arange(1, tenors+1, dtype=int),
+            'Zero_CC': zerocc,
+            'Forward_CC': forwardcc,
+            'Discount': discount,
+            'Zero_AC': zeroac,
+            'Forward_AC': forwardac,
         }
         return pd.DataFrame(data=output_dict)
 
-    def getInputwithVA(self, zero_rates_extrapolated_ac, LLP, VA_value, curve_data: pd.DataFrame) -> pd.DataFrame:
+    def addVA(self, results_sw, LLP, VA_value, curve_data: pd.DataFrame) -> pd.DataFrame:
         """
         Incorporate VA into the extrapolated zero curve.
-        
-        For tenors up to LLP, adjust the zero rates by a parallel shift equal to the VA spread.
-        
+
+        For tenors up to LLP, adjust the zero and forward rates by a parallel shift equal to the VA spread.
+        Adjust the discounting accordingly.
+
         Args:
-            zero_rates_extrapolated_ac (array-like): Extrapolated (accumulated) zero rates.
+            results_sw (df): Extrapolated SW rates.
             LLP (int): Last liquid point.
             VA_value (float): VA spread in basis points.
             curve_data (pd.DataFrame): Original curve data (used for column names).
@@ -235,8 +231,13 @@ class ExtrapolationSW:
         Returns:
             pd.DataFrame: DataFrame with VA-adjusted zero curve.
         """
-        dlt = np.ones(LLP, dtype=int)
-        tenors = np.arange(1, LLP + 1, dtype=int)
         # Add VA spread (converted from basis points) to the extrapolated zeros over the liquid segment.
-        zero_rate_withVA = zero_rates_extrapolated_ac[1:LLP + 1] + VA_value / 10000.0
-        return pd.DataFrame(data=list(zip(dlt, tenors, zero_rate_withVA)), columns=curve_data.columns)
+        results_sw_withVA = results_sw.copy()
+
+        results_sw_withVA.loc[:LLP - 1, 'Zero_AC'] += VA_value / 10000.0
+        results_sw_withVA.loc[:LLP - 1, 'Forward_AC'] += VA_value / 10000.0
+        results_sw_withVA.loc[:LLP - 1, 'Zero_CC'] = np.log(1 + results_sw_withVA.loc[:LLP - 1, 'Zero_AC'])
+        results_sw_withVA.loc[:LLP - 1, 'Forward_CC'] = np.log(1 + results_sw_withVA.loc[:LLP - 1, 'Forward_AC'])
+        results_sw_withVA.loc[:LLP - 1, 'Discount'] = np.exp(-results_sw_withVA.loc[:LLP - 1, 'Zero_CC'] * results_sw_withVA.loc[:LLP - 1, 'Tenors'])
+        results_sw_withVA['DLT'] = curve_data['DLT'].values
+        return results_sw_withVA
