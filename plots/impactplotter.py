@@ -1,7 +1,7 @@
 """
 Module for plotting the impact analysis results as grouped bar charts.
 Each chart displays, for a given scenario, the present value (PV) of a unit ZCB
-for maturities 10 to 60 years using two discount curves.
+for different maturities using two discount curves.
 """
 
 import os
@@ -63,9 +63,11 @@ class ImpactPlotter:
             # Create a custom legend for PV Delta
             legend_handles = [
                 mpatches.Patch(color='#1f77b4', label='PV Alternative Curve'),
-                mpatches.Patch(color='#ff7f0e',label='PV Smith-Wilson Curve'),
-                mpatches.Patch(color='#2ca02c', label='PV (Alt - SW) (Positive)'),
-                mpatches.Patch(color='#d62728', label='PV (Alt - SW) (Negative)')
+                mpatches.Patch(color='#ff7f0e', label='PV Smith-Wilson Curve'),
+                mpatches.Patch(color='#2ca02c',
+                               label='PV (Alt - SW) (Positive)'),
+                mpatches.Patch(color='#d62728',
+                               label='PV (Alt - SW) (Negative)')
             ]
             plt.legend(handles=legend_handles, fontsize=10)
 

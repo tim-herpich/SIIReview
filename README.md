@@ -14,6 +14,7 @@ This project generates and compares interest rate curves using the current **Sol
   - **Smith–Wilson Extrapolation** using the Smith-Wilson approach.
 - **VA Spread Calculation**: Computes the Volatility Adjustment (VA) as per the SII Review.
 - **Impact Analysis**: Assesses discounting impact under different extrapolation methodologies.
+- **Scenario Runner**: A module that orchestrates data adjustments, bootstrapping, extrapolation (with and without VA) and impact analysis for each market scenario.
 - **Plotting and Visualization**: Generates plots for:
   - **Extrapolated Yield Curves**: Comparison between extrapolation methods under different market scenarios.
   - **Impact Assessments** Impact assessments due to different extrapolation methods under different market scenarios.
@@ -49,6 +50,7 @@ SII REVIEW TOOL/
 │   ├── test_impact_calculator.py       # Tests for impact assessment calculations
 │   ├── test_marketdata.py              # Tests for market data loader
 │   ├── test_parameters.py              # Tests for parameter handling
+│   ├── test_scenariorunner.py          # Tests for the ScenarioRunner class
 │
 ├── .gitignore                         # Ignore file for Git
 ├── .gitlab-ci.yml                      # GitLab CI/CD pipeline configuration
@@ -58,6 +60,7 @@ SII REVIEW TOOL/
 ├── marketdata.py                      # Market data loader module
 ├── parameters.py                      # Configuration and parameters module
 ├── README.md                          # Project documentation (this file)
+├── scenariorunner.py                  # Orchestrates scenario-specific processing (new)
 ├── va.py                              # Volatility Adjustment (VA) calculation module
 ```
 

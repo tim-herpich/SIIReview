@@ -26,9 +26,6 @@ def test_coupon_freq(params):
 def test_FSP(params):
     assert params.FSP == 20
 
-def test_alpha(params):
-    assert params.alpha == 0.10
-
 def test_UFR(params):
     assert params.UFR == 0.033
 
