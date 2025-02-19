@@ -1,0 +1,30 @@
+image: python:3.9-slim
+
+stages:
+  - build
+  - test
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+before_script:
+  - echo "Setting up the environment..."
+  - python -m venv venv  # Create a virtual environment
+  - source venv/bin/activate
+  - pip install --upgrade pip
+  - pip install --no-cache-dir --upgrade numpy pandas scipy matplotlib pytest openpyxl
+
+build:
+  stage: build
+  script:
+    - echo "Building the project..."
+    - python -m compileall .
+
+test:
+  stage: test
+  script:
+    - echo "Running tests..."
+    - pytest --tb=short | tee test_log.txt  # Run tests and save output
+    - grep -oP '(\d+) passed' test_log.txt > success_count.txt  # Extract number of passed tests
+    - echo "✅ $(cat success_count.txt) tests passed successfully!"
+    - if grep -q "failed" test_log.txt; then echo "❌ Tests failed!"; exit 1; fi  # Fail pipeline if any test fails
