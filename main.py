@@ -35,7 +35,6 @@ def main():
     # Instantiate business logic classes
     bootstr = Bootstrapping()
     ext_alt = ExtrapolationAlt()
-    ext_sw_excel = ExtrapolationSWExcel()
     ext_sw = ExtrapolationSW()
     impact_calc = ImpactCalculator()
 
@@ -147,37 +146,6 @@ def main():
             alpha=cp.alpha
         )
 
-        # # Smith-Wilson extrapolation (according to Excel) without VA
-        # results_sw_excel = ext_sw_excel.smith_wilson_extrapolation(
-        #     instrument=cp.instrument,
-        #     curve_data=df_sw_shifted,
-        #     coupon_freq=cp.coupon_freq,
-        #     CRA=cp.CRA,
-        #     UFR=cp.UFR,
-        #     alpha_min=cp.alpha_min_SW,
-        #     CR=cp.CR_SW,
-        #     CP=cp.CP_SW
-        # )
-
-        # # Smith-Wilson extrapolation (according to Excel) with VA
-        # df_sw_withVA_excel = ext_sw_excel.getInputwithVA(
-        #     zero_rates_extrapolated_ac=results_sw_excel['Zero_AC'].copy(),
-        #     LLP=cp.LLP_SW,
-        #     VA_value=cp.VA_value,
-        #     curve_data=df_sw_shifted
-        # )
-        # results_sw_withVA_excel = ext_sw_excel.smith_wilson_extrapolation(
-        #     instrument='Zero',
-        #     curve_data=df_sw_withVA_excel,
-        #     coupon_freq=cp.coupon_freq,
-        #     CRA=0.0,
-        #     UFR=cp.UFR,
-        #     alpha_min=cp.alpha_min_SW,
-        #     CR=cp.CR_SW,
-        #     CP=cp.CP_SW
-        # )
-
-        ############################################################################## New Implementation #####################
         # Smith-Wilson extrapolation without VA
         sw_rates_df = boot_df.copy()
         sw_rates_df['DLT'] = df_sw_shifted['DLT']
@@ -203,8 +171,6 @@ def main():
             CR=cp.CR_SW,
             CP=cp.CP_SW
         )
-        ############################################################################## New Implementation #####################
-
 
         # Store the scenario curves in a dictionary
         scenario_curves_dict[scenario["name"]] = {

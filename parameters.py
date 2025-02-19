@@ -17,7 +17,7 @@ class Parameters:
 
         # Parameters for alternative extrapolation
         self.FSP = 20
-        self.alpha = 0.10 # seems to be currently assumed value
+        self.alpha = 0.11 # seems to be currently assumed value
 
         # Parameters for SW and alternative calculations
         self.UFR = 0.033

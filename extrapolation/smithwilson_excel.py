@@ -1,5 +1,5 @@
 """
-Module for Smith-Wilson extrapolation of zero rate curves.
+Obsolete Module for Smith-Wilson extrapolation of zero rate curves according to EIOPA Excel tool.
 """
 
 import numpy as np
