@@ -1,7 +1,7 @@
 """
 Module for plotting the impact analysis results as grouped bar charts.
 Each chart displays, for a given scenario, the present value (PV) of a unit ZCB
-for different maturities using two discount curves.
+for different maturities using two discount curves, plus the difference (Alt - SW).
 """
 
 import os
@@ -20,63 +20,129 @@ class ImpactPlotter:
         Initialize the ImpactPlotter.
 
         Args:
-            impact_data (dict): Dictionary where keys are scenario names and values are DataFrames
-                                with columns: 'Maturity', 'PV_Alt' and 'PV_SW'.
+            impact_data (dict): Dictionary where keys are scenario names and
+                                values are DataFrames with columns:
+                                'Maturity',
+                                'PV Alternative Extrapolation',
+                                'PV Smith-Wilson Extrapolation',
+                                'PV (Alt - SW)'.
         """
         self.impact_data = impact_data
 
     def plot_impact_barchart(self, output_path: str = None) -> None:
         """
-        For each scenario in the impact data, plot a grouped bar chart where the x-axis shows
-        the maturity and the y-axis shows the PV of a unit face value ZCB computed
-        using the two discount curves.
-
-        Three bars are plotted per maturity:
-        - PV Alternative Extrapolation
-        - PV Smith-Wilson Extrapolation
-        - PV (Alt - SW) (difference between the two), colored green if positive, red if negative.
-
-        Args:
-            output_path (str, optional): Directory to save the plots. If not provided, the plots are displayed.
+        Plot a grouped bar chart for each scenario with a secondary axis for PV (Alt - SW),
+        ensuring both axes' zero lines line up at the same vertical position, while also
+        retaining each axis's data range. Extra margins are added to avoid truncation.
         """
         for scenario, scenario_df in self.impact_data.items():
             maturities = scenario_df['Maturity'].values
             pv_alt = scenario_df['PV Alternative Extrapolation'].values
             pv_sw = scenario_df['PV Smith-Wilson Extrapolation'].values
             pv_delta = scenario_df['PV (Alt - SW)'].values
+
             x = np.arange(len(maturities))
-            width = 0.3  # Adjusted width to fit all 3 bars
+            width = 0.25
 
-            plt.figure(figsize=(12, 6))
+            fig, ax1 = plt.subplots(figsize=(14, 8))
 
-            # Three grouped bars: Alternative, Smith-Wilson, and Delta
-            plt.bar(x - width, pv_alt, width,
-                    label='PV Alternative Curve')
-            plt.bar(x, pv_sw, width, label='PV Smith-Wilson Curve')
+            # Plot PV Alternative and PV Smith-Wilson on primary axis
+            ax1.bar(
+                x - width,
+                pv_alt,
+                width,
+                label='PV Alternative Curve',
+                color='#1f77b4'
+            )
+            ax1.bar(
+                x,
+                pv_sw,
+                width,
+                label='PV Smith-Wilson Curve',
+                color='#ff7f0e'
+            )
 
-            # Conditional colors for PV (Alt - SW): Green if positive, Red if negative
-            delta_colors = ['#2ca02c' if delta >
-                            0 else '#d62728' for delta in pv_delta]
-            plt.bar(x + width, pv_delta, width,
-                    label='PV (Alt - SW)', color=delta_colors)
+            # Create secondary axis for PV (Alt - SW)
+            ax2 = ax1.twinx()
+            ax2.bar(
+                x + width,
+                pv_delta,
+                width,
+                label='PV (Alt - SW)',
+                color=['#2ca02c' if delta > 0 else '#d62728' for delta in pv_delta]
+            )
 
-            # Create a custom legend for PV Delta
+            # 1) Add margins so auto-scaling won't cut off top/bottom bars
+            ax1.margins(y=0.25)
+            # ax2.margins(y=0.1)  # Uncomment if needed
+
+            # 2) Let Matplotlib finalize auto-limits for both axes
+            plt.draw()
+
+            # Get the auto-limits
+            y1_min, y1_max = ax1.get_ylim()
+            y2_min, y2_max = ax2.get_ylim()
+
+            # 3) Compute zero-line fraction for each axis
+            def zero_fraction(ymin, ymax):
+                rng = (ymax - ymin) if (ymax != ymin) else 1e-12
+                return abs(ymin) / rng  # fraction from bottom to 0
+
+            ax1_zero_pos = zero_fraction(y1_min, y1_max)
+            ax2_zero_pos = zero_fraction(y2_min, y2_max)
+
+            # 4) Shift the axis whose zero is "lower" so that it lines up
+            #    with the axis whose zero is "higher."
+            if ax1_zero_pos > ax2_zero_pos:
+                # Shift ax2's entire range
+                delta = (ax1_zero_pos - ax2_zero_pos) * (y2_max - y2_min)
+                ax2.set_ylim(y2_min - delta, y2_max - delta)
+            else:
+                # Shift ax1
+                delta = (ax2_zero_pos - ax1_zero_pos) * (y1_max - y1_min)
+                ax1.set_ylim(y1_min - delta, y1_max - delta)
+
+            # 5) Draw horizontal zero lines
+            ax1.axhline(0, color='black', linewidth=1)
+            ax2.axhline(0, color='black', linewidth=1)
+
+            # 6) Configure labels, grid, etc.
+            #    (a) Set axis labels, all at fontsize=16
+            ax1.set_xlabel('Maturity (Years)', fontsize=16)
+            ax1.set_ylabel('PV of Unit CF', fontsize=16)
+            # Right axis label in gray
+            ax2.set_ylabel('PV (Alt - SW)', fontsize=16, color='gray')
+
+            #    (b) Set tick label sizes. The right axis ticks are also gray.
+            ax1.tick_params(axis='both', labelsize=16)
+            ax2.tick_params(axis='both', labelsize=16, labelcolor='gray')
+
+            #    (c) x-ticks
+            ax1.set_xticks(x)
+            ax1.set_xticklabels(maturities)
+            ax1.grid(axis='y', linestyle='--', alpha=0.7)
+
+            # Create legend
             legend_handles = [
                 mpatches.Patch(color='#1f77b4', label='PV Alternative Curve'),
                 mpatches.Patch(color='#ff7f0e', label='PV Smith-Wilson Curve'),
-                mpatches.Patch(color='#2ca02c',
-                               label='PV (Alt - SW) (Positive)'),
-                mpatches.Patch(color='#d62728',
-                               label='PV (Alt - SW) (Negative)')
+                mpatches.Patch(color='#2ca02c', label='PV (Alt - SW) Positive'),
+                mpatches.Patch(color='#d62728', label='PV (Alt - SW) Negative')
             ]
-            plt.legend(handles=legend_handles, fontsize=10)
+            ax1.legend(
+                handles=legend_handles,
+                fontsize=13.5,
+                loc='upper left',
+                bbox_to_anchor=(1.1, 1.0)
+            )
 
-            plt.ylim(-0.1, 1.0)  # Expand slightly below min for readability
-            plt.xlabel('Maturity (Years)', fontsize=12)
-            plt.ylabel('PV at LLP of unit CF', fontsize=12)
-            plt.xticks(x, maturities)
-            plt.grid(axis='y', linestyle='--', alpha=0.7)
+            # Optional title
+            # plt.title(f"Impact Analysis for {scenario}", fontsize=16)
 
+            # 7) Tight layout so space is left for the legend on the right
+            fig.tight_layout(rect=[0, 0, 0.85, 1])
+
+            # Save or show plot
             if output_path:
                 os.makedirs(output_path, exist_ok=True)
                 filename = os.path.join(output_path, f"impact_{scenario}.png")
@@ -95,8 +161,7 @@ class ImpactPlotter:
         """
         for scenario, scenario_df in self.impact_data.items():
             if scenario_df.empty:
-                raise ValueError(
-                    f"No data available for scenario '{scenario}'.")
+                raise ValueError(f"No data available for scenario '{scenario}'.")
             if output_path:
                 os.makedirs(output_path, exist_ok=True)
                 filename = os.path.join(output_path, f"{scenario}.csv")
