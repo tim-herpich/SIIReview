@@ -25,6 +25,14 @@ class CurvePlotter:
         self.scenario_curves_dict = curves
         self.curve_diff_dict = {}
 
+    def _get_color(self, curve_name: str) -> str:
+        """Return the appropriate color based on the curve name."""
+        if 'Alternative' in curve_name:
+            return '#1f77b4'
+        elif 'Smith-Wilson' in curve_name:
+            return '#ff7f0e'
+        return 'gray'
+
     def align_dataframes(self, *dfs: pd.DataFrame) -> list:
         """
         Align multiple DataFrames by their common 'Tenors' column.
@@ -76,14 +84,14 @@ class CurvePlotter:
 
                     plt.figure(figsize=(10, 6))
                     plt.plot(curve1_aligned['Tenors'], curve1_aligned['Zero_CC'],
-                             label=f"{scenario_name} - {curve1_name}", linestyle='-')
+                             label=f"{scenario_name} - {curve1_name}", color=self._get_color(curve1_name), linestyle='-')
                     plt.plot(curve2_aligned['Tenors'], curve2_aligned['Zero_CC'],
-                             label=f"{scenario_name} - {curve2_name}", linestyle='--')
+                             label=f"{scenario_name} - {curve2_name}", color=self._get_color(curve2_name), linestyle='--')
 
                     plt.axvline(x=llp, color='black',
                                 linestyle='dashed', linewidth=1)
                     ymin, ymax = plt.ylim()
-                    plt.text(llp, (0.95*ymax), "FSP/LLP", color='black',
+                    plt.text(llp+15, ymin+(0.8*(ymax-ymin)), "FSP/LLP", color='black',
                              fontsize=10, ha='right', va='center')
                     plt.xlabel('Tenors', fontsize=12)
                     plt.ylabel('Zero Rates', fontsize=12)
@@ -120,45 +128,68 @@ class CurvePlotter:
                 interest_levels.add("high_interest")
 
         # For each interest level, collect curves with 'VA' in the name and plot them together
-        for interest_level in interest_levels:
+        for interest_level in sorted(interest_levels):
             curves_to_align = []
             curve_labels = []
             curve_styles = []
+            curve_colors = []
+
             for scenario, curves in self.scenario_curves_dict.items():
                 if interest_level in scenario:
                     for curve_name, curve_data in curves.items():
                         if 'VA' in curve_name:
                             curves_to_align.append(curve_data)
-                            # curve_label = ' '.join(word.capitalize() for word in scenario.split('_'))
-                            curve_labels.append(' '.join(
-                                word.capitalize() for word in scenario.split('_')) + f" - {curve_name}")
+                            curve_labels.append(f"{curve_name} - {scenario.replace('_', ' ').title()}")
                             line_style = '-' if 'base_spreads' in scenario else '--'
-                            # Store the line style
                             curve_styles.append(line_style)
+                            curve_colors.append(self._get_color(curve_name))
 
             if not curves_to_align:
                 continue
 
+            # Align curves and start plotting
             aligned_curves = self.align_dataframes(*curves_to_align)
-            plt.figure(figsize=(10, 6))
-            for curve_data, label, curve_line_style in zip(aligned_curves, curve_labels, curve_styles):
-                plt.plot(curve_data['Tenors'], curve_data['Zero_CC'],
-                         label=label, linestyle=curve_line_style)
+            plt.figure(figsize=(12, 8))
 
-            plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1)
+            for curve_data, label, line_style, curve_color in zip(aligned_curves, curve_labels, curve_styles, curve_colors):
+                plt.plot(curve_data['Tenors'], curve_data['Zero_CC'] * 100,
+                        label=label, color=curve_color, linestyle=line_style, linewidth=2.25, alpha=0.85) # y-axis in percentage
+
+            # Add LLP marker
+            plt.axvline(x=llp, color='gray', linestyle='dashed', linewidth=1.5)
             ymin, ymax = plt.ylim()
-            plt.text(llp, (0.95*ymax), "LLP", color='black',
-                     fontsize=10, ha='right', va='center')
-            plt.xlabel('Tenor (Years)', fontsize=12)
-            plt.ylabel('Zero Rates', fontsize=12)
-            plt.legend(fontsize=10)
-            plt.grid(True)
+            plt.text(llp + 1, ymin + 0.9 * (ymax - ymin), "FSP/LLP", color='black',
+                    fontsize=14, ha='left', va='center',
+                    bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
 
+            # Determine legend position based on y-value distribution
+            if curve_data['Zero_CC'].values[-1] *100 > (0.9 * ymax):
+                legend_loc = 'lower right'
+            else:
+                legend_loc = 'upper right'
+
+            # Plot customization
+            plt.xlabel('Tenor (Years)', fontsize=16, labelpad=10)
+            plt.ylabel('Zero Rates (%)', fontsize=16, labelpad=10) # y-axis in percentage
+            # plt.title(f"Credit Spread Scenarios - {interest_level.replace('_', ' ').title()}", fontsize=16, pad=20)
+            plt.legend(fontsize=13.5, loc=legend_loc, frameon=True, fancybox=True, shadow=True, borderpad=1)
+
+            # Set tick label font size
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
+
+            # Grid and limits
+            plt.grid(which='major', linestyle='--', linewidth=0.6, alpha=0.7)
+            plt.minorticks_on()
+            plt.grid(which='minor', linestyle=':', linewidth=0.4, alpha=0.5)
+            plt.xlim(0, max(aligned_curves[0]['Tenors']) + 5)
+            plt.ylim(ymin * 0.98, ymax * 1.02)
+
+            # Save or display plot
             if output_path:
                 os.makedirs(output_path, exist_ok=True)
-                filename = os.path.join(
-                    output_path, f"{interest_level}_with_VA.png")
-                plt.savefig(filename, bbox_inches="tight")
+                filename = os.path.join(output_path, f"{interest_level}_with_VA.png")
+                plt.savefig(filename, dpi=300, bbox_inches="tight")
             else:
                 plt.show()
             plt.close()
@@ -272,7 +303,7 @@ class CurvePlotter:
             plt.grid(True)
             plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1)
             ymin, ymax = plt.ylim()
-            plt.text(llp, (0.95*ymax), "FSP/LLP", color='black',
+            plt.text(llp+15, ymin+(0.8*(ymax-ymin)), "FSP/LLP", color='black',
                      fontsize=10, ha='right', va='center')
 
             filename = os.path.join(diff_plot_path, f"{diff_name}.png")

@@ -43,6 +43,7 @@ def main():
     curve_plotter = CurvePlotter(scenario_curves_dict)
     curve_plotter.plot_curves(
         llp=params.LLP_SW, output_path='outputs/curves/plots/')
+    curve_plotter.plot_curves_cs_combined(llp=params.LLP_SW, output_path='outputs/curves/plots/cs_combined/')
     curve_plotter.export_curve_data(output_path='outputs/curves/data/')
     curve_plotter.compute_curve_differences()
     curve_plotter.export_curve_differences_data(output_path='outputs/curves/')

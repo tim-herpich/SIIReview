@@ -42,11 +42,11 @@ class Parameters:
 
         # Market scenarios
         self.scenarios = [
-            {'name': 'low_interest_base_spreads', 'irshift': -200, 'csshift': 0, 'vaspread': 27},
-            {'name': 'low_interest_high_spreads', 'irshift': -200, 'csshift': 100, 'vaspread': 45}
+            {'name': 'low_interest_base_spreads', 'irshift': -200, 'csshift': 0, 'vaspread': 25},
+            {'name': 'low_interest_high_spreads', 'irshift': -200, 'csshift': 100, 'vaspread': 53}
             ,
-            {'name': 'base_interest_base_spreads', 'irshift': 0, 'csshift': 0, 'vaspread': 27},
-            {'name': 'base_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 45},
-            {'name': 'high_interest_base_spreads', 'irshift': 200, 'csshift': 0, 'vaspread': 27},
-            {'name': 'high_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 45}
+            {'name': 'base_interest_base_spreads', 'irshift': 0, 'csshift': 0, 'vaspread': 25},
+            {'name': 'base_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 53},
+            {'name': 'high_interest_base_spreads', 'irshift': 200, 'csshift': 0, 'vaspread': 25},
+            {'name': 'high_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 53}
         ]
