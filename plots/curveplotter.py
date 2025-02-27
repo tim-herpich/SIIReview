@@ -57,53 +57,51 @@ class CurvePlotter:
 
     def plot_curves(self, llp: int, output_path: str = None) -> None:
         """
-        Plot specified pairs of curves for comparison across all scenarios.
-
-        Args:
-            scenario_curves_dict (dict): Dictionary containing all scenarios and their curves.
-            output_path (str, optional): Directory to save the plots. If not provided, plots are displayed.
+        Enhanced plot for specified pairs of curves with improved styling.
         """
-        # Define curve pairs for comparison
         curve_pairs = [
-            ('Alternative Extrapolation with VA',
-             'Smith-Wilson Extrapolation with VA'),
+            ('Alternative Extrapolation with VA', 'Smith-Wilson Extrapolation with VA'),
             ('Alternative Extrapolation', 'Smith-Wilson Extrapolation')
         ]
 
-        # Iterate over scenarios
         for scenario_name, curves in self.scenario_curves_dict.items():
             for curve1_name, curve2_name in curve_pairs:
-                # Ensure both curves exist in the dictionary before proceeding
                 if curve1_name in curves and curve2_name in curves:
-                    curve1 = curves[curve1_name]
-                    curve2 = curves[curve2_name]
+                    curve1, curve2 = self.align_dataframes(curves[curve1_name], curves[curve2_name])
 
-                    # Align the data based on common tenors
-                    curve1_aligned, curve2_aligned = self.align_dataframes(
-                        curve1, curve2)
+                    plt.figure(figsize=(12, 8))
+                    plt.plot(curve1['Tenors'], curve1['Zero_CC'] * 100,
+                             label=f"{curve1_name}", color=self._get_color(curve1_name), linestyle='-', linewidth=2.25, alpha=0.85) # y-axis in percentage
+                    plt.plot(curve2['Tenors'], curve2['Zero_CC'] * 100,
+                             label=f"{curve2_name}", color=self._get_color(curve2_name), linestyle='-', linewidth=2.25, alpha=0.85) # y-axis in percentage
 
-                    plt.figure(figsize=(10, 6))
-                    plt.plot(curve1_aligned['Tenors'], curve1_aligned['Zero_CC'],
-                             label=f"{scenario_name} - {curve1_name}", color=self._get_color(curve1_name), linestyle='-')
-                    plt.plot(curve2_aligned['Tenors'], curve2_aligned['Zero_CC'],
-                             label=f"{scenario_name} - {curve2_name}", color=self._get_color(curve2_name), linestyle='--')
-
-                    plt.axvline(x=llp, color='black',
-                                linestyle='dashed', linewidth=1)
+                    plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1.5)
                     ymin, ymax = plt.ylim()
-                    plt.text(llp+15, ymin+(0.8*(ymax-ymin)), "FSP/LLP", color='black',
-                             fontsize=10, ha='right', va='center')
-                    plt.xlabel('Tenors', fontsize=12)
-                    plt.ylabel('Zero Rates', fontsize=12)
-                    plt.legend(fontsize=10)
-                    plt.grid(True)
+                    plt.text(llp + 1, ymin + 0.9 * (ymax - ymin), "FSP/LLP", color='black',
+                             fontsize=14, ha='left', va='center',
+                             bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
 
-                    # Save or display the plot
+                    plt.xlabel('Tenor (Years)', fontsize=16, labelpad=10)
+                    plt.ylabel('Zero Rates (%)', fontsize=16, labelpad=10)
+                    plt.xticks(fontsize=16)
+                    plt.yticks(fontsize=16)
+                    plt.grid(which='major', linestyle='--', linewidth=0.6, alpha=0.7)
+                    plt.minorticks_on()
+                    plt.grid(which='minor', linestyle=':', linewidth=0.4, alpha=0.5)
+
+                    if curve1['Zero_CC'].values[-1] * 100 > (0.9 * ymax): # y-axis in percentage 
+                        legend_loc = 'lower right'
+                    else:
+                        legend_loc = 'upper right'
+                    plt.legend(fontsize=13.5, loc=legend_loc, frameon=True, fancybox=True, shadow=True, borderpad=1)
+
+                    plt.xlim(0, max(curve1['Tenors']) + 5)
+                    plt.ylim(ymin * 0.98, ymax * 1.02)
+
                     if output_path:
                         os.makedirs(output_path, exist_ok=True)
-                        filename = os.path.join(
-                            output_path, f"{scenario_name}_{curve1_name}_vs_{curve2_name}.png")
-                        plt.savefig(filename, bbox_inches='tight')
+                        filename = os.path.join(output_path, f"{scenario_name}_{curve1_name}_vs_{curve2_name}.png")
+                        plt.savefig(filename, dpi=300, bbox_inches="tight")
                     else:
                         plt.show()
                     plt.close()
