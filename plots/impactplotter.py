@@ -83,23 +83,32 @@ class ImpactPlotter:
             y2_min, y2_max = ax2.get_ylim()
 
             # 3) Compute zero-line fraction for each axis
-            def zero_fraction(ymin, ymax):
-                rng = (ymax - ymin) if (ymax != ymin) else 1e-12
-                return abs(ymin) / rng  # fraction from bottom to 0
-
-            ax1_zero_pos = zero_fraction(y1_min, y1_max)
-            ax2_zero_pos = zero_fraction(y2_min, y2_max)
-
             # 4) Shift the axis whose zero is "lower" so that it lines up
-            #    with the axis whose zero is "higher."
-            if ax1_zero_pos > ax2_zero_pos:
-                # Shift ax2's entire range
-                delta = (ax1_zero_pos - ax2_zero_pos) * (y2_max - y2_min)
-                ax2.set_ylim(y2_min - delta, y2_max - delta)
+            
+            # catch special case where both axis ranges are disjoint 
+            if abs(y1_min) <= 1e-6 and abs(y2_max) <= 1e-6:
+                y1_min = y1_min - y1_max 
+                y2_max = y2_max + abs(y2_min)
+                ax1.set_ylim(y1_min, y1_max)
+                ax2.set_ylim(y2_min, y2_max)
+
             else:
-                # Shift ax1
-                delta = (ax2_zero_pos - ax1_zero_pos) * (y1_max - y1_min)
-                ax1.set_ylim(y1_min - delta, y1_max - delta)
+                def zero_fraction(ymin, ymax):
+                    rng = (ymax - ymin) if (ymax != ymin) else 1e-12
+                    return abs(ymin) / rng  # fraction from bottom to 0
+
+                ax1_zero_pos = zero_fraction(y1_min, y1_max)
+                ax2_zero_pos = zero_fraction(y2_min, y2_max)
+
+                #    with the axis whose zero is "higher."
+                if ax1_zero_pos > ax2_zero_pos:
+                    # Shift ax2's entire range
+                    delta = (ax1_zero_pos - ax2_zero_pos) * (y2_max - y2_min)
+                    ax2.set_ylim(y2_min - delta, y2_max - delta)
+                else:
+                    # Shift ax1
+                    delta = (ax2_zero_pos - ax1_zero_pos) * (y1_max - y1_min)
+                    ax1.set_ylim(y1_min - delta, y1_max - delta)
 
             # 5) Draw horizontal zero lines
             ax1.axhline(0, color='black', linewidth=1)
