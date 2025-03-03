@@ -1,7 +1,7 @@
 """
 Module for plotting the impact analysis results as grouped bar charts.
 Each chart displays, for a given scenario, the present value (PV) of a unit ZCB
-for different maturities using two discount curves, plus the difference (Alt - SW).
+for different maturities using two discount curves, plus the difference (Alternative - Smith-Wilson Curve).
 """
 
 import os
@@ -25,13 +25,13 @@ class ImpactPlotter:
                                 'Maturity',
                                 'PV Alternative Extrapolation',
                                 'PV Smith-Wilson Extrapolation',
-                                'PV (Alt - SW)'.
+                                'PV (Alternative - Smith-Wilson Curve)'.
         """
         self.impact_data = impact_data
 
     def plot_impact_barchart(self, output_path: str = None) -> None:
         """
-        Plot a grouped bar chart for each scenario with a secondary axis for PV (Alt - SW),
+        Plot a grouped bar chart for each scenario with a secondary axis for PV (Alternative - Smith-Wilson Curve),
         ensuring both axes' zero lines line up at the same vertical position, while also
         retaining each axis's data range. Extra margins are added to avoid truncation.
         """
@@ -62,19 +62,18 @@ class ImpactPlotter:
                 color='#ff7f0e'
             )
 
-            # Create secondary axis for PV (Alt - SW)
+            # Create secondary axis for PV (Alternative - Smith-Wilson Curve)
             ax2 = ax1.twinx()
             ax2.bar(
                 x + width,
                 pv_delta,
                 width,
-                label='PV (Alt - SW)',
-                color=['#2ca02c' if delta > 0 else '#d62728' for delta in pv_delta]
+                label='PV (Alternative - Smith-Wilson Curve)',
+                color='#2ca02c'
             )
 
             # 1) Add margins so auto-scaling won't cut off top/bottom bars
             ax1.margins(y=0.25)
-            # ax2.margins(y=0.1)  # Uncomment if needed
 
             # 2) Let Matplotlib finalize auto-limits for both axes
             plt.draw()
@@ -107,40 +106,31 @@ class ImpactPlotter:
             ax2.axhline(0, color='black', linewidth=1)
 
             # 6) Configure labels, grid, etc.
-            #    (a) Set axis labels, all at fontsize=16
             ax1.set_xlabel('Maturity (Years)', fontsize=16)
             ax1.set_ylabel('PV of Unit CF', fontsize=16)
-            # Right axis label in gray
-            ax2.set_ylabel('PV (Alt - SW)', fontsize=16, color='gray')
-
-            #    (b) Set tick label sizes. The right axis ticks are also gray.
+            ax2.set_ylabel('PV (Alternative - Smith-Wilson Curve)', fontsize=16, color='gray')
             ax1.tick_params(axis='both', labelsize=16)
             ax2.tick_params(axis='both', labelsize=16, labelcolor='gray')
-
-            #    (c) x-ticks
             ax1.set_xticks(x)
             ax1.set_xticklabels(maturities)
             ax1.grid(axis='y', linestyle='--', alpha=0.7)
 
-            # Create legend
+            # Create legend above the plot
             legend_handles = [
                 mpatches.Patch(color='#1f77b4', label='PV Alternative Curve'),
                 mpatches.Patch(color='#ff7f0e', label='PV Smith-Wilson Curve'),
-                mpatches.Patch(color='#2ca02c', label='PV (Alt - SW) Positive'),
-                mpatches.Patch(color='#d62728', label='PV (Alt - SW) Negative')
+                mpatches.Patch(color='#2ca02c', label='PV (Alternative - Smith-Wilson Curve)')
             ]
-            ax1.legend(
+            fig.legend(
                 handles=legend_handles,
                 fontsize=13.5,
-                loc='upper left',
-                bbox_to_anchor=(1.1, 1.0)
+                loc='upper center',
+                ncol=3,
+                frameon=True
             )
 
-            # Optional title
-            # plt.title(f"Impact Analysis for {scenario}", fontsize=16)
-
-            # 7) Tight layout so space is left for the legend on the right
-            fig.tight_layout(rect=[0, 0, 0.85, 1])
+            # Adjust layout to fit the legend above the plot
+            fig.tight_layout(rect=[0, 0.1, 1, 0.9])
 
             # Save or show plot
             if output_path:
@@ -168,3 +158,5 @@ class ImpactPlotter:
                 scenario_df.to_csv(filename, index=False)
             else:
                 print(f"No output path given.\n\nPrint: {scenario_df}")
+
+    
