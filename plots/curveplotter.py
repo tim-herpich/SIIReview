@@ -137,7 +137,7 @@ class CurvePlotter:
                     for curve_name, curve_data in curves.items():
                         if 'VA' in curve_name:
                             curves_to_align.append(curve_data)
-                            curve_labels.append(f"{curve_name} - {scenario.replace('_', ' ').title()}")
+                            curve_labels.append(f"{curve_name} - {scenario.replace('_', ' ').title().replace('Low Interest ', '').replace('High Interest ', '')}")
                             line_style = '-' if 'base_spreads' in scenario else '--'
                             curve_styles.append(line_style)
                             curve_colors.append(self._get_color(curve_name))
