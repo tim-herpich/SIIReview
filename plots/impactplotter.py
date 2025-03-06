@@ -44,7 +44,7 @@ class ImpactPlotter:
             x = np.arange(len(maturities))
             width = 0.25
 
-            fig, ax1 = plt.subplots(figsize=(14, 8))
+            fig, ax1 = plt.subplots(figsize=(12, 8))
 
             # Plot PV Alternative and PV Smith-Wilson on primary axis
             ax1.bar(
@@ -91,6 +91,12 @@ class ImpactPlotter:
                 y2_max = y2_max + abs(y2_min)
                 ax1.set_ylim(y1_min, y1_max)
                 ax2.set_ylim(y2_min, y2_max)
+                def zero_fraction(ymin, ymax):
+                    rng = (ymax - ymin) if (ymax != ymin) else 1e-12
+                    return abs(ymin) / rng  # fraction from bottom to 0
+
+                ax1_zero_pos = zero_fraction(y1_min, y1_max)
+                ax2_zero_pos = zero_fraction(y2_min, y2_max)
 
             else:
                 def zero_fraction(ymin, ymax):
@@ -108,7 +114,9 @@ class ImpactPlotter:
                 else:
                     # Shift ax1
                     delta = (ax2_zero_pos - ax1_zero_pos) * (y1_max - y1_min)
-                    ax1.set_ylim(y1_min - delta, y1_max - delta)
+                    # Ensure y1_max - delta >= 1
+                    scale = 1.25/(y1_max - delta) if y1_max - delta < 1 else 1 # Enforce ymax = 1.25
+                    ax1.set_ylim(scale*(y1_min - delta), scale*(y1_max - delta))
 
             # 5) Draw horizontal zero lines
             ax1.axhline(0, color='black', linewidth=1)

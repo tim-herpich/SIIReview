@@ -187,12 +187,12 @@ class ScenarioRunner:
             "PV (Alt - SW)": []
         }
         # For maturities from LLP to CP_SW in steps of 5 years:
-        for maturity in range(self.params.LLP_SW, self.params.CP_SW + 1, 5):
+        for maturity in range(0, self.params.CP_SW + 1, 5):
             # Note: Use the appropriate zero curves with VA.
             pv_alt = impact_calc.compute_zcb_pv(
-                results_alt_with_VA, maturity, self.params.LLP_SW)
+                results_alt_with_VA, maturity)
             pv_sw = impact_calc.compute_zcb_pv(
-                results_sw_with_VA, maturity, self.params.LLP_SW)
+                results_sw_with_VA, maturity)
             impact_results["Maturity"].append(maturity)
             impact_results["PV Alternative Extrapolation"].append(pv_alt)
             impact_results["PV Smith-Wilson Extrapolation"].append(pv_sw)
