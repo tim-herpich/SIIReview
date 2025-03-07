@@ -2,6 +2,7 @@
 Module containing parameters for curve bootstrapping and extrapolation.
 """
 
+
 class Parameters:
     """
     Container for curve parameters and market scenarios.
@@ -17,7 +18,7 @@ class Parameters:
 
         # Parameters for alternative extrapolation
         self.FSP = 20
-        self.alpha = 0.11 # seems to be currently assumed value
+        self.alpha = 0.11  # seems to be currently assumed value
 
         # Parameters for SW and alternative calculations
         self.UFR = 0.033
@@ -42,11 +43,24 @@ class Parameters:
 
         # Market scenarios
         self.scenarios = [
-            {'name': 'low_interest_base_spreads', 'irshift': -200, 'csshift': 0, 'vaspread': 25},
-            {'name': 'low_interest_high_spreads', 'irshift': -200, 'csshift': 100, 'vaspread': 53}
-            # ,
-            # {'name': 'base_interest_base_spreads', 'irshift': 0, 'csshift': 0, 'vaspread': 25},
-            # {'name': 'base_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 53},
-            # {'name': 'high_interest_base_spreads', 'irshift': 200, 'csshift': 0, 'vaspread': 25},
-            # {'name': 'high_interest_high_spreads', 'irshift': 200, 'csshift': 100, 'vaspread': 53}
+            {'name': 'low_interest_base_spreads',
+                'irshift': -200, 'csshift': 0, 'vaspread': 25},
+            {'name': 'low_interest_high_spreads', 'irshift': -
+                200, 'csshift': 100, 'vaspread': 53},
+            {'name': 'base_interest_base_spreads',
+                'irshift': 0, 'csshift': 0, 'vaspread': 25},
+            {'name': 'base_interest_high_spreads',
+                'irshift': 200, 'csshift': 100, 'vaspread': 53},
+            {'name': 'high_interest_base_spreads',
+                'irshift': 200, 'csshift': 0, 'vaspread': 25},
+            {'name': 'high_interest_high_spreads',
+                'irshift': 200, 'csshift': 100, 'vaspread': 53}
         ]
+
+        # Sensitivity analysis parameters
+        self.sensitivity_tenors = [10, 30]
+        # asset_size = liability_size * ratio
+        self.sensitivity_asset_ratio_range = (1.0, 1.5)
+        # asset_duration relative to liability_duration
+        self.sensitivity_asset_duration_ratio_range = (0.5, 1.5)
+        self.sensitivity_num_steps = 10
