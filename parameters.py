@@ -44,17 +44,18 @@ class Parameters:
         # Market scenarios
         self.scenarios = [
             {'name': 'low_interest_base_spreads',
-                'irshift': -200, 'csshift': 0, 'vaspread': 25},
-            {'name': 'low_interest_high_spreads', 'irshift': -
-                200, 'csshift': 100, 'vaspread': 53},
-            {'name': 'base_interest_base_spreads',
-                'irshift': 0, 'csshift': 0, 'vaspread': 25},
-            {'name': 'base_interest_high_spreads',
-                'irshift': 200, 'csshift': 100, 'vaspread': 53},
-            {'name': 'high_interest_base_spreads',
-                'irshift': 200, 'csshift': 0, 'vaspread': 25},
-            {'name': 'high_interest_high_spreads',
-                'irshift': 200, 'csshift': 100, 'vaspread': 53}
+                'irshift': -200, 'csshift': 0, 'vaspread': 25}
+            # ,
+            # {'name': 'low_interest_high_spreads', 'irshift': -
+            #     200, 'csshift': 100, 'vaspread': 53},
+            # {'name': 'base_interest_base_spreads',
+            #     'irshift': 0, 'csshift': 0, 'vaspread': 25},
+            # {'name': 'base_interest_high_spreads',
+            #     'irshift': 200, 'csshift': 100, 'vaspread': 53},
+            # {'name': 'high_interest_base_spreads',
+            #     'irshift': 200, 'csshift': 0, 'vaspread': 25},
+            # {'name': 'high_interest_high_spreads',
+            #     'irshift': 200, 'csshift': 100, 'vaspread': 53}
         ]
 
         # Sensitivity analysis parameters
@@ -64,3 +65,8 @@ class Parameters:
         # asset_duration relative to liability_duration
         self.sensitivity_asset_duration_ratio_range = (0.5, 1.5)
         self.sensitivity_num_steps = 10
+
+        # Additional Extrapolation Analysis parameters
+        self.additional_analysis = True
+        self.additional_analysis_scenario = {'name': 'low_interest_base_spreads', 'irshift': -200}
+        self.ir_shocks = [50, 100]

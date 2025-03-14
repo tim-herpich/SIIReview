@@ -20,6 +20,9 @@ An extended feature of the project is the **Portfolio Sensitivity Analysis**, wh
 - **Portfolio Sensitivity Analysis**:  
   - **PortfolioSensitivity Module**: Varies portfolio characteristics (asset size and asset duration) while keeping liability parameters fixed.  
   - Computes the delta between the present values obtained from the two discount curves (Alternative with VA minus Smith–Wilson with VA) at selected maturities.
+- **Additional Extrapolation Analysis**:
+  - **ExtrapolationAdditionalAnalyzer**: For a selected market scenario (if specified in parameters), computes the extrapolated curves (SW and Alternative) without VA.
+  - Applies a series of IR shocks (in basis points) to the illiquid portion of the spot rate curve and recomputes the extrapolated curves.
 - **Plotting and Visualization**: Generates plots for:
   - **Extrapolated Yield Curves**: Comparison between extrapolation methods under different market scenarios.
   - **Impact Assessments**: Bar charts comparing impact analysis results.
@@ -69,6 +72,7 @@ SII REVIEW TOOL/
 ├── README.md                          # Project documentation (this file)
 ├── scenariorunner.py                  # Orchestrates scenario-specific processing (new)
 ├── portfoliosensitivity.py            # Portfolio sensitivity analysis module 
+├── extrapolationadditionalanalyzer.py # Additional extrapolation analysis 
 ├── va.py                              # Volatility Adjustment (VA) calculation module
 ```
 

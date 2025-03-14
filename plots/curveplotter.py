@@ -246,6 +246,135 @@ class CurvePlotter:
         # Assign computed differences to the class variable
         self.curve_diff_dict = curve_diff_dict
 
+    def plot_shifted_illiquid_curves(self, shifted_illiquid_curves_dict: dict, llp: int, output_path: str = None) -> None:
+        """
+        Plot the base SW curve and all Alternative curves from the additional analysis dictionary.
+        
+        Args:
+            shifted_illiquid_curves_dict (dict): Dictionary with keys like 'Base', 'Shock_50bp', etc.
+            llp (int): The last liquid point (LLP) to be marked on the plot.
+            output_path (str, optional): Directory to save the plot image.
+        """
+        # Collect curves to align
+        curves_to_align = []
+        curve_labels = []
+        curve_styles = []
+        curve_colors = []
+        
+        # Define colors for the curves
+        sw_color = '#ff7f0e'
+        alt_color = '#1f77b4'
+        styles = ['dashed', 'dashdot', 'dotted']
+        style_index = 0
+        
+        # Iterate over scenarios and prepare data for alignment
+        for key, curves in shifted_illiquid_curves_dict.items():
+            if key == 'Base':
+                # Base SW curve
+                curves_to_align.append(curves['SW'])
+                curve_labels.append("Smith-Wilson Extrapolation")
+                curve_styles.append('solid')  
+                curve_colors.append(sw_color)
+                
+                # Base Alt curve
+                curves_to_align.append(curves['Alt'])
+                curve_labels.append("Alternative Extrapolation")
+                curve_styles.append('solid') 
+                curve_colors.append(alt_color)
+            else:
+                # Shocked Alt curves
+                df_alt = curves['Alt']
+                curves_to_align.append(df_alt)
+                curve_labels.append(f"Alternative Extrapolation (IR Shock {key.split('_')[1]})")
+                curve_styles.append(styles[style_index]) 
+                curve_colors.append(alt_color)
+            style_index += 1
+
+        # Align curves
+        aligned_curves = self.align_dataframes(*curves_to_align)
+
+        # Create the figure
+        plt.figure(figsize=(12, 8))
+
+        # Plot each aligned curve
+        for curve_data, label, line_style, curve_color in zip(aligned_curves, curve_labels, curve_styles, curve_colors):
+            plt.plot(curve_data['Tenors'], curve_data['Zero_CC'] * 100,
+                    label=label, color=curve_color, linestyle=line_style, linewidth=2.25, alpha=0.85)  # y-axis in percentage
+        
+        # Add LLP marker
+        plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1.5)
+        ymin, ymax = plt.ylim()
+        plt.text(llp + 1, ymin + 0.9 * (ymax - ymin), "FSP/LLP", color='black',
+                fontsize=14, ha='left', va='center',
+                bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
+
+        # Determine legend position dynamically
+        if aligned_curves[-1]['Zero_CC'].values[-1] * 100 > (0.9 * ymax):
+            legend_loc = 'lower right'
+        else:
+            legend_loc = 'upper right'
+
+        # Plot customization
+        plt.xlabel('Tenor (Years)', fontsize=16, labelpad=10)
+        plt.ylabel('Zero Rates (%)', fontsize=16, labelpad=10)  # y-axis in percentage
+        plt.legend(fontsize=13.5, loc=legend_loc, frameon=True, fancybox=True, shadow=True, borderpad=1)
+
+        # Set tick label font size
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+
+        # Grid and limits
+        plt.grid(which='major', linestyle='--', linewidth=0.6, alpha=0.7)
+        plt.minorticks_on()
+        plt.grid(which='minor', linestyle=':', linewidth=0.4, alpha=0.5)
+        plt.xlim(0, max(aligned_curves[0]['Tenors']) + 5)
+        plt.ylim(ymin * 0.98, ymax * 1.02)
+
+        # Save or display plot
+        if output_path:
+            os.makedirs(output_path, exist_ok=True)
+            filename = os.path.join(output_path, "shifted_illiquid_curves.png")
+            plt.savefig(filename, dpi=300, bbox_inches='tight')
+        else:
+            plt.show()
+        plt.close()
+
+    def export_shifted_illiquid_curves_data(self, shifted_illiquid_curves_dict: dict, output_path: str) -> None:
+        """
+        Export each set of additional extrapolated curves as separate CSV files.
+        
+        Args:
+            additional_curves_dict (dict): Dictionary of additional curves.
+            output_path (str): Directory where CSV files will be saved.
+        """
+        os.makedirs(output_path, exist_ok=True)
+
+        # Flatten the dictionary into a single DataFrame
+        all_data = []
+
+        for key, curves in shifted_illiquid_curves_dict.items():
+            df_sw = curves['SW'].copy()
+            df_alt = curves['Alt'].copy()
+
+            # Append curve type to column names
+            df_sw = df_sw.add_suffix('_SW')
+            df_alt = df_alt.add_suffix('_Alt')            
+            # Merge the two dataframes side by side
+            combined_df = pd.concat([df_sw, df_alt], axis=1)            
+            # Add the category column
+            combined_df['Category'] = key 
+            all_data.append(combined_df)
+
+        # Concatenate all data into a single DataFrame
+        final_df = pd.concat(all_data, ignore_index=True)
+
+        # Define output file path
+        output_file = os.path.join(output_path, "shifted_illiquid_curves.csv")
+        
+        # Export to CSV
+        final_df.to_csv(output_file, index=False)
+
+
     def export_curve_data(self, output_path: str = None) -> None:
         """
         Export all curve data to CSV files.
