@@ -26,7 +26,15 @@ class CurvePlotter:
         self.curve_diff_dict = {}
 
     def _get_color(self, curve_name: str) -> str:
-        """Return the appropriate color based on the curve name."""
+        """
+        Return the appropriate color based on the curve name.
+
+        Args:
+            curve_name (str): Name of the curve.
+        
+        Returns:
+            str: Hex color code.
+        """
         if 'Alternative' in curve_name:
             return '#1f77b4'
         elif 'Smith-Wilson' in curve_name:
@@ -45,15 +53,12 @@ class CurvePlotter:
         """
         if not dfs:
             return []
-        # Find the common 'Tenors' across all DataFrames
         common_tenors = reduce(
             lambda x, y: x[['Tenors']].merge(
                 y[['Tenors']], on='Tenors', how='inner'),
             dfs
         )
-        aligned_dfs = [
-            df.merge(common_tenors, on='Tenors', how='inner') for df in dfs]
-        return aligned_dfs
+        return [df.merge(common_tenors, on='Tenors', how='inner') for df in dfs]
 
     def plot_curves(self, llp: int, output_path: str = None) -> None:
         """
@@ -191,6 +196,79 @@ class CurvePlotter:
             else:
                 plt.show()
             plt.close()
+
+    def plot_low_high_no_va_curves(self, llp: int, output_path: str = None) -> None:
+        """
+        Plots both low and high interest rate base spreads curves (without VA) on a single plot.
+
+        Args:
+            llp (int): Last liquid point (LLP) to be marked on the plot.
+            output_path (str, optional): Directory to save the plot image.
+        """
+        interest_levels = ['low_interest', 'high_interest']
+        curves_to_align = []
+        curve_labels = []
+        curve_styles = []
+        curve_colors = []
+
+        # Collect all relevant curves from both interest levels
+        for interest_level in interest_levels:
+            for scenario, curves in self.scenario_curves_dict.items():
+                if interest_level in scenario and 'base_spreads' in scenario:
+                    for curve_name, curve_data in curves.items():
+                        if 'VA' not in curve_name:  # Exclude VA curves
+                            curves_to_align.append(curve_data)
+                            curve_labels.append(f"{curve_name} - {scenario.replace('_', ' ').title().split(' Base')[0]}")
+                            curve_styles.append('-' if interest_level == 'low_interest' else '--')  # Different styles
+                            curve_colors.append(self._get_color(curve_name))
+
+        if not curves_to_align:
+            print("No matching curves found.")
+            return
+
+        # Align data before plotting
+        aligned_curves = self.align_dataframes(*curves_to_align)
+        plt.figure(figsize=(12, 8))
+
+        # Plot each curve
+        for curve_data, label, line_style, curve_color in zip(aligned_curves, curve_labels, curve_styles, curve_colors):
+            plt.plot(curve_data['Tenors'], curve_data['Zero_CC'] * 100,
+                    label=label, color=curve_color, linestyle=line_style, linewidth=2.25, alpha=0.85)
+
+        # Add LLP marker
+        plt.axvline(x=llp, color='black', linestyle='dashed', linewidth=1.5)
+        ymin, ymax = plt.ylim()
+        plt.text(llp + 1, ymin + 0.9 * (ymax - ymin), "FSP/LLP", color='black',
+                fontsize=14, ha='left', va='center',
+                bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
+
+        # Legend placement
+        if aligned_curves[-1]['Zero_CC'].values[-1] * 100 > (0.9 * ymax):
+            legend_loc = 'lower right'
+        else:
+            legend_loc = 'upper right'
+
+        # Plot customization
+        plt.xlabel('Tenor (Years)', fontsize=16, labelpad=10)
+        plt.ylabel('Zero Rates (%)', fontsize=16, labelpad=10)
+        plt.legend(fontsize=13.5, loc=legend_loc, frameon=True, fancybox=True, shadow=True, borderpad=1)
+
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        plt.grid(which='major', linestyle='--', linewidth=0.6, alpha=0.7)
+        plt.minorticks_on()
+        plt.grid(which='minor', linestyle=':', linewidth=0.4, alpha=0.5)
+        plt.xlim(0, max(aligned_curves[0]['Tenors']) + 5)
+        plt.ylim(ymin * 0.98, ymax * 1.02)
+
+        # Save or display plot
+        if output_path:
+            os.makedirs(output_path, exist_ok=True)
+            filename = os.path.join(output_path, "combined_low_high_ir.png")
+            plt.savefig(filename, dpi=300, bbox_inches='tight')
+        else:
+            plt.show()
+        plt.close()
 
     def compute_curve_differences(self):
         """
