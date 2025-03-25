@@ -123,16 +123,3 @@ Contributions to this project are highly encouraged! Follow these steps to contr
 4. **Push** to your branch.
 5. Open a **Pull Request** for review.
 
-
----
-
-## 📞 Contact
-
-For questions, suggestions, or issues, please feel free to reach out via:
-
-- **Email**: [tim.herpich@d-fine.com](tim.herpich@d-fine.com)
-
----
-
-**Developed for the Makret and Non-Financial Risk Cluster**
-
