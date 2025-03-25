@@ -1,7 +1,6 @@
-# test/test_scenariorunner.py
-
 """
-This module contains unit tests for the ScenarioRunner class.
+tests/test_scenariorunner.py
+Unit tests for the ScenarioRunner class.
 """
 
 import pandas as pd
@@ -13,8 +12,7 @@ from parameters import Parameters
 @pytest.fixture
 def dummy_alt_data():
     """
-    Creates a dummy DataFrame for alternative bootstrapping inputs.
-
+    Fixture for dummy alternative bootstrapping input DataFrame.
     Columns: DLT, Tenor, LLFR Weights, Input Rates.
     """
     data = {
@@ -29,8 +27,7 @@ def dummy_alt_data():
 @pytest.fixture
 def dummy_sw_data():
     """
-    Creates a dummy DataFrame for Smith–Wilson inputs.
-
+    Fixture for dummy Smith–Wilson input DataFrame.
     Columns: DLT, Tenor, Input Rates.
     """
     data = {
@@ -44,7 +41,7 @@ def dummy_sw_data():
 @pytest.fixture
 def dummy_va_spreads():
     """
-    Creates a dummy DataFrame for VA spread data with expected issuer labels.
+    Fixture for dummy VA spread DataFrame with expected issuer labels.
     """
     issuers = [
         'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
@@ -64,15 +61,15 @@ def dummy_va_spreads():
 @pytest.fixture
 def dummy_params():
     """
-    Returns a dummy Parameters object.
+    Fixture for a dummy Parameters object.
     """
     return Parameters()
 
 
+@pytest.fixture
 def test_scenario_runner_outputs(dummy_alt_data, dummy_sw_data, dummy_va_spreads, dummy_params):
     """
-    Test that ScenarioRunner.run() returns a curves dictionary and an impact DataFrame
-    with the expected structure.
+    Fixture to run ScenarioRunner and return the curves dictionary and impact DataFrame.
     """
     scenario = {
         "name": "base_interest_base_spreads",
@@ -80,11 +77,16 @@ def test_scenario_runner_outputs(dummy_alt_data, dummy_sw_data, dummy_va_spreads
         "csshift": 0,
         "vaspread": 30
     }
-    runner = ScenarioRunner(scenario, dummy_alt_data,
-                            dummy_sw_data, dummy_va_spreads, dummy_params)
+    runner = ScenarioRunner(scenario, dummy_alt_data, dummy_sw_data, dummy_va_spreads, dummy_params)
     curves, impact_df = runner.run()
+    return curves, impact_df
 
-    # Expected keys in the curves dictionary.
+
+def test_scenario_runner_curves_structure(test_scenario_runner_outputs):
+    """
+    Test that the curves dictionary from ScenarioRunner.run() contains expected keys and structure.
+    """
+    curves, impact_df = test_scenario_runner_outputs
     expected_keys = [
         'Alternative Extrapolation with VA',
         'Alternative Extrapolation',
@@ -93,8 +95,12 @@ def test_scenario_runner_outputs(dummy_alt_data, dummy_sw_data, dummy_va_spreads
     ]
     for key in expected_keys:
         assert key in curves, f"Missing curve key: {key}"
-        # Each curve should be a DataFrame with a 'Tenors' column.
         assert "Tenors" in curves[key].columns, f"'Tenors' column missing in {key}"
 
-    # Impact DataFrame should contain a 'Maturity' column.
+
+def test_scenario_runner_impact_structure(test_scenario_runner_outputs):
+    """
+    Test that the impact DataFrame from ScenarioRunner.run() has the expected structure.
+    """
+    curves, impact_df = test_scenario_runner_outputs
     assert "Maturity" in impact_df.columns, "Impact DataFrame is missing 'Maturity' column"

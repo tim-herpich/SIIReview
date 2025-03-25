@@ -3,7 +3,7 @@ Module containing parameters for curve bootstrapping and extrapolation.
 """
 
 
-class Parameters:
+class TestParameters:
     """
     Container for curve parameters and market scenarios.
     """
