@@ -76,5 +76,17 @@ The underlying data is saved in the `outputs/curves/data` directory.
 Impact assessment plots are generated in `outputs/impacts/plots`.
 The underlying data is saved in the `outputs/impacts/data` directory.
 
+---
+
+## 📜 License
+
+This work is licensed under a [Creative Commons Attribution-NonCommercial 4.0 International License](https://creativecommons.org/licenses/by-nc/4.0/).
+
+---
+
+## 📬 Contact
+
+Maintainer: Tim Herpich
+For issues or feature requests, please open a GitHub issue or pull request.
 
 ---
