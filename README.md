@@ -82,11 +82,8 @@ The underlying data is saved in the `outputs/impacts/data` directory.
 
 This work is licensed under a [Creative Commons Attribution-NonCommercial 4.0 International License](https://creativecommons.org/licenses/by-nc/4.0/).
 
----
-
-## 📬 Contact
-
-Maintainer: Tim Herpich
-For issues or feature requests, please open a GitHub issue or pull request.
+You are free to share and adapt the material for non-commercial purposes with proper attribution.
+© Tim Herpich
 
 ---
+
